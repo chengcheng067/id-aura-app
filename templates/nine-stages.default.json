@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "source": "PRD §4 九个标准阶段定义表（设计工作量占比口径）",
+  "stages": [
+    {
+      "orderIndex": 1,
+      "name": "提案",
+      "ratioPercent": 5,
+      "defaultResponsibility": "需求沟通与现场踏勘预约；概念意向与风格提案；概算与报价；签订合同",
+      "defaultTasks": [
+        "需求沟通与现场踏勘预约",
+        "概念意向与风格提案",
+        "概算与报价",
+        "签订合同"
+      ]
+    },
+    {
+      "orderIndex": 2,
+      "name": "测量",
+      "ratioPercent": 4,
+      "defaultResponsibility": "现场尺寸复测核对；拍摄全景/细节/管线点位照片；记录结构与机电现状；输出测量记录册",
+      "defaultTasks": [
+        "现场尺寸复测核对",
+        "拍摄全景/细节/管线点位照片",
+        "记录结构与机电现状",
+        "输出测量记录册"
+      ]
+    },
+    {
+      "orderIndex": 3,
+      "name": "平面方案",
+      "ratioPercent": 11,
+      "defaultResponsibility": "平面布局与动线推敲；功能分区与桌椅排布（餐饮坪效校核）；业主方案汇报与修改确认",
+      "defaultTasks": [
+        "平面布局与动线推敲",
+        "功能分区与桌椅排布（餐饮坪效校核）",
+        "给业主方案汇报",
+        "业主修改意见确认"
+      ]
+    },
+    {
+      "orderIndex": 4,
+      "name": "SU 建模",
+      "ratioPercent": 10,
+      "defaultResponsibility": "SketchUp 空间体块与场景建模；材质初步贴面；立面推敲与造型深化核对",
+      "defaultTasks": [
+        "SketchUp 空间体块建模",
+        "场景与相机视角搭建",
+        "材质初步贴面",
+        "立面推敲与造型深化核对"
+      ]
+    },
+    {
+      "orderIndex": 5,
+      "name": "效果图",
+      "ratioPercent": 14,
+      "defaultResponsibility": "灯光氛围渲染（关键视角出图）；材质色彩终选呈现；业主审美确认与局部调整",
+      "defaultTasks": [
+        "灯光氛围渲染",
+        "关键视角出图",
+        "材质色彩终选呈现",
+        "业主审美确认与局部调整"
+      ]
+    },
+    {
+      "orderIndex": 6,
+      "name": "施工图深化",
+      "ratioPercent": 22,
+      "defaultResponsibility": "平/立/剖全套图纸；水电点位、吊顶、地面及节点大样；出图自审与业主/施工方会审",
+      "defaultTasks": [
+        "平面图全套深化",
+        "立面图绘制",
+        "剖面图绘制",
+        "水电点位图",
+        "吊顶/地面节点大样",
+        "出图自审与会审"
+      ]
+    },
+    {
+      "orderIndex": 7,
+      "name": "材料表",
+      "ratioPercent": 10,
+      "defaultResponsibility": "主材软装选样定版（打烊前必备的样品封样）；供应商比价与下单跟催；输出《材料下单表》",
+      "defaultTasks": [
+        "主材软装选样定版",
+        "样品封样确认",
+        "供应商比价",
+        "下单跟催",
+        "输出《材料下单表》"
+      ]
+    },
+    {
+      "orderIndex": 8,
+      "name": "交付",
+      "ratioPercent": 19,
+      "defaultResponsibility": "施工交底与图纸答疑；关键节点巡场把控（水电/瓦木/油漆验收陪同）；竣工验收与整改销项；结算配合",
+      "defaultTasks": [
+        "施工交底与图纸答疑",
+        "水电验收巡场",
+        "瓦木油验收陪同",
+        "竣工验收",
+        "整改销项跟进",
+        "结算配合"
+      ]
+    },
+    {
+      "orderIndex": 9,
+      "name": "实景",
+      "ratioPercent": 5,
+      "defaultResponsibility": "完工摄影/回访拍摄安排；软陈摆场收尾；案例复盘归档与《长夏》系列素材入库",
+      "defaultTasks": [
+        "完工摄影安排",
+        "回访拍摄安排",
+        "软陈摆场收尾",
+        "案例复盘归档"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "name": "id-plan",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "《ID Plan》— 室内设计项目节点管理系统（离线优先 Web 应用）",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:all": "concurrently -k \"npm:dev\" \"npm:dev:server\"",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
+    "dexie": "^4.0.8",
+    "html2canvas": "^1.4.1",
+    "lucide-react": "^0.441.0",
+    "mammoth": "^1.8.0",
+    "pdfjs-dist": "^4.6.82",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "fake-indexeddb": "^6.0.0",
+    "fastify": "^4.28.1",
+    "jsdom": "^25.0.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.1"
+  },
+  "optionalDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "better-sqlite3": "^11.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

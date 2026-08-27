@@ -1,0 +1,142 @@
+/**
+ * 实体形状唯一定义（所有实体均携带 revision+updatedAt 以支撑未来增量同步）。
+ * 注意：一切时间字段均为 UTC ISO string（铁律 2），绝不出现 Date 对象。
+ */
+
+import {
+  AssignmentAction,
+  MemberRoleKind,
+  ProjectStatus,
+  ProjectType,
+  StageLogType,
+  StageStatus,
+} from './enums';
+
+/** 项目 */
+export interface Project {
+  id: string; // proj_xxx
+  name: string;
+  type: ProjectType;
+  address: string;
+  clientName: string;
+  /** 元为单位整数金额，可空（后补录合同） */
+  contractAmount: number | null;
+  /** UTC ISO string，可空 */
+  signedAt: string | null;
+  plannedStartAt: string;
+  plannedEndAt: string;
+  /** 卡片封面色 token 名（cream/pine/amber/clay 系），可空 */
+  coverColor: string | null;
+  status: ProjectStatus;
+  revision: number;
+  updatedAt: string;
+}
+
+/** 阶段（每项目固定 9 条，orderIndex 1..9） */
+export interface Stage {
+  id: string; // stg_xxx
+  projectId: string;
+  orderIndex: number;
+  name: string;
+  /** 设计工作量占比 %（项目级可覆写模板默认值） */
+  ratioPercent: number;
+  startAt: string;
+  endAt: string;
+  status: StageStatus;
+  ownerId: string | null;
+  /** false=隐藏（如纯设计项目隐藏交付段个案处理） */
+  visible: boolean;
+  /** 本地资料路径（F12 资料入口） */
+  resourcePath: string | null;
+  revision: number;
+  updatedAt: string;
+}
+
+/** 阶段任务条目 */
+export interface Task {
+  id: string; // tsk_xxx
+  projectId: string;
+  stageId: string;
+  title: string;
+  done: boolean;
+  /** 主负责人/兼容字段（保留）：UI 保存时自动同步为 assigneeIds[0] ?? null */
+  assigneeId: string | null;
+  /**
+   * 参与人全集（v0.3 新增，必填）：写入路径统一默认 []。
+   * 旧数据/旧备份无该字段 → zod .default([]) 归一 → 运行时 taskAssigneeIds() 回落 [assigneeId]，
+   * 行为与 v0.2 完全一致（键序铁律：本字段插在 assigneeId 之后、dueDate 之前，与 taskSchema/repo insert 同步）。
+   */
+  assigneeIds: string[];
+  /** 自然日截止日，YYYY-MM-DD 或 ISO datetime 均以 string 存库，可空 */
+  dueDate: string | null;
+  orderIndex: number;
+  revision: number;
+  updatedAt: string;
+}
+
+/** 成员（MVP 无账号密码，身份=本机选择 currentMemberId） */
+export interface Member {
+  id: string; // mem_xxx
+  name: string;
+  role: string;
+  contact: string | null;
+  /** 头像底色 hex（仅头像底色场景允许 hex，来源仍集中在模板常量） */
+  avatarColor: string;
+  active: boolean;
+  /** 角色（admin=设计师本人 / member=成员）；写入路径统一补默认值，运行时必有值 */
+  roleKind: MemberRoleKind;
+  revision: number;
+  updatedAt: string;
+}
+
+/** 任务指派流水（append-only，本期只写不读，F17 同步底座） */
+export interface AssignmentLog {
+  id: string; // log_xxx
+  taskId: string;
+  projectId: string;
+  memberId: string | null;
+  action: AssignmentAction;
+  operatorName: string;
+  createdAt: string;
+}
+
+/** 阶段变更流水（append-only：建档/改期/状态史） */
+export interface StageLog {
+  id: string; // log_xxx
+  stageId: string;
+  projectId: string;
+  type: StageLogType;
+  fromStatus: StageStatus | null;
+  toStatus: StageStatus | null;
+  oldStartAt: string | null;
+  newStartAt: string | null;
+  oldEndAt: string | null;
+  newEndAt: string | null;
+  /** rescheduled 且 newEndAt>oldEndAt 时必填（StageService 强制） */
+  reason: string | null;
+  operatorName: string;
+  createdAt: string;
+}
+
+/** 合同识别存证（定稿后 parsedResultJson 不再修改——append-only 语义） */
+export interface ContractRecord {
+  id: string; // ctt_xxx
+  /** 建档前解析可为空，建档后回链 */
+  projectId: string | null;
+  fileName: string | null;
+  /** 原文 sha256 前 16 位摘要 */
+  rawTextDigest: string;
+  /** ContractParseResult 序列化 JSON */
+  parsedResultJson: string;
+  /** 用户最终确认的 payload JSON */
+  confirmedPayloadJson: string | null;
+  createdByManual: boolean;
+  createdAt: string;
+}
+
+/** KV 设置表 */
+export interface Setting {
+  key: string;
+  valueJson: string;
+  updatedAt: string;
+}

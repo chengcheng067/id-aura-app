@@ -1,0 +1,251 @@
+/**
+ * 备份服务：exportAll() → BackupPackage；importAndReplace() → zod 校验 + 清库重建。
+ * 格式规范见 docs/backup-format.md；往返不变式由 tests/backup.roundtrip.spec.ts 保证。
+ */
+
+import { z } from 'zod';
+
+import type { BackupPackage } from '../types/dto';
+import type {
+  AssignmentLog,
+  StageLog,
+} from '../types/entities';
+import { ChangxiaError, ChangxiaErrorCode } from '../types/enums';
+import type { IRepositoryBundle } from '../repositories/interfaces';
+
+/* ------------------------------ zod 实体 schema ------------------------------ */
+
+const isoString = z.string().min(1);
+const nullableIso = isoString.nullable();
+const dateLike = z.string().regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/);
+
+const projectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  address: z.string(),
+  clientName: z.string(),
+  contractAmount: z.number().nullable(),
+  signedAt: nullableIso,
+  plannedStartAt: dateLike,
+  plannedEndAt: dateLike,
+  coverColor: z.string().nullable(),
+  status: z.string(),
+  revision: z.number().int().nonnegative(),
+  updatedAt: isoString,
+});
+
+const stageSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  orderIndex: z.number().int().min(1).max(9),
+  name: z.string(),
+  ratioPercent: z.number(),
+  startAt: dateLike,
+  endAt: dateLike,
+  status: z.string(),
+  ownerId: z.string().nullable(),
+  visible: z.boolean(),
+  resourcePath: z.string().nullable(),
+  revision: z.number().int().nonnegative(),
+  updatedAt: isoString,
+});
+
+const taskSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  stageId: z.string(),
+  title: z.string(),
+  done: z.boolean(),
+  assigneeId: z.string().nullable(),
+  // v0.3 新增：参与人全集。用 .default([]) 而非裸 optional——旧备份无该字段 → 归一 [] → 通过；
+  // 且保证导入后 DB 行必有显式 assigneeIds（否则运行时 assigneeIds.length 读 undefined 抛错）。
+  // 键序铁律：插在 assigneeId 之后、dueDate 之前（与 repo insert / project.service 默认字面量三处同步）。
+  assigneeIds: z.array(z.string()).default([]),
+  dueDate: z.string().nullable(),
+  orderIndex: z.number().int(),
+  revision: z.number().int().nonnegative(),
+  updatedAt: isoString,
+});
+
+/**
+ * 成员 schema：roleKind 用 z.enum([...]).default('member')（不是裸 optional）。
+ * 旧备份无该字段 → undefined → 校验通过并归一为 'member'，保证导入后每行都有显式 roleKind
+ * （否则 TS 类型要求必填，导入后行缺字段运行时 undefined）。
+ */
+const memberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.string(),
+  contact: z.string().nullable(),
+  avatarColor: z.string(),
+  active: z.boolean(),
+  roleKind: z.enum(['admin', 'member']).default('member'),
+  revision: z.number().int().nonnegative(),
+  updatedAt: isoString,
+});
+
+const assignmentSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  projectId: z.string(),
+  memberId: z.string().nullable(),
+  action: z.string(),
+  operatorName: z.string(),
+  createdAt: isoString,
+});
+
+const stageLogSchema = z.object({
+  id: z.string(),
+  stageId: z.string(),
+  projectId: z.string(),
+  type: z.string(),
+  fromStatus: z.string().nullable(),
+  toStatus: z.string().nullable(),
+  oldStartAt: nullableIso,
+  newStartAt: nullableIso,
+  oldEndAt: nullableIso,
+  newEndAt: nullableIso,
+  reason: z.string().nullable(),
+  operatorName: z.string(),
+  createdAt: isoString,
+});
+
+const contractSchema = z.object({
+  id: z.string(),
+  projectId: z.string().nullable(),
+  fileName: z.string().nullable(),
+  rawTextDigest: z.string(),
+  parsedResultJson: z.string(),
+  confirmedPayloadJson: z.string().nullable(),
+  createdByManual: z.boolean(),
+  createdAt: isoString,
+});
+
+const settingSchema = z.object({
+  key: z.string(),
+  valueJson: z.string(),
+  updatedAt: isoString,
+});
+
+const backupSchema = z.object({
+  meta: z.object({
+    app: z.literal('changxia'),
+    schemaVersion: z.literal(1),
+    exportedAt: isoString,
+  }),
+  data: z.object({
+    projects: z.array(projectSchema),
+    stages: z.array(stageSchema),
+    tasks: z.array(taskSchema),
+    members: z.array(memberSchema),
+    assignments: z.array(assignmentSchema),
+    logs: z.array(stageLogSchema),
+    contracts: z.array(contractSchema),
+    settings: z.array(settingSchema),
+  }),
+});
+
+/** 导入前置校验（供测试直接调用）；结构不符抛 ChangxiaError，绝不半套写入 */
+export function validateBackupJson(json: unknown): BackupPackage {
+  const parsed = backupSchema.safeParse(json);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new ChangxiaError(
+      ChangxiaErrorCode.Validation,
+      `备份文件结构校验失败：${issue?.path.join('.') || '(root)'} ${issue?.message ?? ''}`.trim(),
+      parsed.error,
+    );
+  }
+  return parsed.data as BackupPackage;
+}
+
+/* --------------------------------- 服务本体 --------------------------------- */
+
+export class BackupService {
+  public constructor(private readonly bundle: IRepositoryBundle) {}
+
+  /** 并行读全部表组装 BackupPackage（admin.fullExport 含 append-only 流水整表） */
+  public async exportAll(): Promise<BackupPackage> {
+    if (this.bundle.admin) {
+      return this.bundle.admin.fullExport();
+    }
+    // 无 admin 通道时的降级路径：主表可导出，流水表置空并告警
+    const b = this.bundle;
+    const [projects, stages, tasks, members, contracts, settings] = await Promise.all([
+      b.projects.list({ status: 'all' }),
+      this.listAllStages(),
+      this.listAllTasks(),
+      b.members.list(true),
+      b.contracts.list(),
+      b.settings.all(),
+    ]);
+    return {
+      meta: { app: 'changxia', schemaVersion: 1, exportedAt: new Date().toISOString() },
+      data: { projects, stages, tasks, members, assignments: [], logs: [], contracts, settings },
+    };
+  }
+
+  /** 导入 = 校验 + 清库重建。结构不符直接拒绝（原子性由 admin.replaceAllImport 保证） */
+  public async importAndReplace(pkg: BackupPackage): Promise<void> {
+    // 1) 结构校验（含 roleKind 枚举归一）
+    const normalized = validateBackupJson(pkg);
+    if (!this.bundle.admin) {
+      throw new ChangxiaError(
+        ChangxiaErrorCode.Storage,
+        '当前数据源不支持备份导入。',
+      );
+    }
+    // 2) 落库前组装：
+    //    - members 用 zod 归一产物：roleKind .default('member') 在此补齐旧备份缺失字段
+    //      （若传回原始对象，旧包导入后 Dexie 行缺 roleKind，运行时 undefined），
+    //      且 schema 键序与 repo insert 键序一致（roundtrip 键序不变式）；
+    //    - tasks 用 zod 归一产物（v0.3 新增）：assigneeIds .default([]) 补齐旧备份缺失字段，
+    //      且 schema 键序与 repo insert 键序一致（键序铁律：assigneeIds 插在 assigneeId 后、dueDate 前）；
+    //    - 其余表用原始对象：zod 会按 schema 键序重建对象（id 前置），
+    //      而 DB 行 id/createdAt 尾置，会破坏 roundtrip 的 JSON.stringify 键序 diff。
+    const data = {
+      ...pkg.data,
+      members: normalized.data.members,
+      tasks: normalized.data.tasks,
+    };
+    await this.bundle.admin.replaceAllImport({ ...pkg, data });
+  }
+
+  /* --------------------------- 降级导出的跨项目聚合 --------------------------- */
+
+  private async listAllStages() {
+    const projects = await this.bundle.projects.list({ status: 'all' });
+    const chunks = await Promise.all(
+      projects.map((p) => this.bundle.stages.listByProject(p.id)),
+    );
+    return chunks.flat();
+  }
+
+  private async listAllTasks() {
+    const projects = await this.bundle.projects.list({ status: 'all' });
+    const chunks = await Promise.all(
+      projects.map((p) => this.bundle.tasks.listByProject(p.id)),
+    );
+    return chunks.flat();
+  }
+}
+
+/** 备份下载文件名（用户可见物）：改名 ID Plan 后前缀同步；内容校验走 meta.app，与文件名解耦 */
+export function backupFileName(now: Date = new Date()): string {
+  const ts = now.toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  return `id-plan-backup-${ts}.json`;
+}
+
+/** 序列化下载（浏览器环境专用） */
+export function downloadBackup(pkg: BackupPackage): void {
+  const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = backupFileName();
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export type { AssignmentLog, StageLog };
