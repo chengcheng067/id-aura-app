@@ -10,7 +10,7 @@ import {
   type TimelineRange,
 } from '../../lib/date';
 import type { Stage, Project, Member } from '../../core/types/entities';
-import { StageStatus } from '../../core/types/enums';
+import { pickActiveStageId } from '../../lib/progress';
 import { useUiStore, type TimelineZoom } from '../../store/useUiStore';
 import { useKeyboardPan } from '../../hooks/useKeyboardPan';
 import { useDragReschedule } from '../../hooks/useDragReschedule';
@@ -241,21 +241,9 @@ export function TimelineView({
   );
 }
 
-/** 激活阶段判定：今天落在其区间内且未完成；否则取最近的未完成阶段 */
+/** 激活阶段判定（id 版，保持旧签名避免回归）：委托到共享派生层 lib/progress */
 export function pickActiveStage(stages: Stage[], todayIso: string): string | null {
-  const visible = stages.filter((s) => s.visible !== false);
-  const inRange = visible.find(
-    (s) =>
-      s.status !== StageStatus.Completed &&
-      todayIso >= s.startAt.slice(0, 10) &&
-      todayIso <= s.endAt.slice(0, 10),
-  );
-  if (inRange) return inRange.id;
-  const nextUp = visible
-    .filter((s) => s.status !== StageStatus.Completed)
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .find((s) => s.startAt.slice(0, 10) > todayIso);
-  return nextUp?.id ?? null;
+  return pickActiveStageId(stages, todayIso);
 }
 
 /** 平移导出（供外部分页按钮类控件复用） */

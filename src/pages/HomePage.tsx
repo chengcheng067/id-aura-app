@@ -7,9 +7,12 @@ import { ArchiveListRow } from '../components/project/ArchiveListRow';
 import { MembersPageSection } from '../components/member/MembersPageSection';
 import { ManualFallbackForm } from '../components/contract-wizard/ManualFallbackForm';
 import { subscribeManualForm } from '../components/project/NewProjectMenu';
+import { MonthlyCalendarView } from '../components/calendar/MonthlyCalendarView';
 import { useProjectsStore } from '../store/useProjectsStore';
 import { useMembersStore } from '../store/useMembersStore';
+import { useUiStore } from '../store/useUiStore';
 import { useRoleGuard } from '../hooks/useRoleGuard';
+import { cn } from '../lib/cn';
 import type { Project, Stage, Task } from '../core/types/entities';
 
 /**
@@ -24,6 +27,8 @@ export function HomePage(): JSX.Element {
   const tasks = useProjectsStore((s) => s.tasks);
   const members = useMembersStore((s) => s.members);
   const { isAdmin } = useRoleGuard();
+  const homeViewMode = useUiStore((s) => s.homeViewMode);
+  const setHomeViewMode = useUiStore((s) => s.setHomeViewMode);
 
   // 手动建档显隐：本地 state + 订阅顶栏菜单广播
   const [manualOpen, setManualOpen] = useState(false);
@@ -38,30 +43,41 @@ export function HomePage(): JSX.Element {
 
   return (
     <div className="space-y-8">
-      <section>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-display-md">进行中 · {active.length}</h2>
+      {/* 视图开关：[看板 | 月历]（形态对齐参考稿 看板/时间轴 toggle，瞬态存 useUiStore） */}
+      <div className="flex items-center justify-between">
+        <ViewModeToggle mode={homeViewMode} onChange={setHomeViewMode} />
+        {homeViewMode === 'kanban' && (
           <span className="text-xs text-mist">{todayIso}</span>
-        </div>
-
-        {active.length === 0 ? (
-          <EmptyState onManual={() => setManualOpen(true)} />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {active.map((p) => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                stages={stagesOf(p)}
-                tasks={tasksOf(p)}
-                members={members}
-                todayIso={todayIso}
-                onOpen={() => navigate(`/project/${p.id}`)}
-              />
-            ))}
-          </div>
         )}
-      </section>
+      </div>
+
+      {homeViewMode === 'calendar' ? (
+        <MonthlyCalendarView onManual={() => setManualOpen(true)} />
+      ) : (
+        <section>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="font-display text-display-md">进行中 · {active.length}</h2>
+          </div>
+
+          {active.length === 0 ? (
+            <EmptyState onManual={() => setManualOpen(true)} />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {active.map((p) => (
+                <ProjectCard
+                  key={p.id}
+                  project={p}
+                  stages={stagesOf(p)}
+                  tasks={tasksOf(p)}
+                  members={members}
+                  todayIso={todayIso}
+                  onOpen={() => navigate(`/project/${p.id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 手动建档兜底（顶栏菜单或空态触发） */}
       <ManualFallbackForm open={manualOpen} onClose={() => setManualOpen(false)} />
@@ -100,6 +116,43 @@ function EmptyState({ onManual }: { onManual(): void }): JSX.Element {
       >
         直接手动建档
       </button>
+    </div>
+  );
+}
+
+/** [看板 | 月历] 视图开关（形态对齐参考稿 看板/时间轴 toggle） */
+function ViewModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: 'kanban' | 'calendar';
+  onChange(mode: 'kanban' | 'calendar'): void;
+}): JSX.Element {
+  const opts: Array<{ key: 'kanban' | 'calendar'; label: string }> = [
+    { key: 'kanban', label: '看板' },
+    { key: 'calendar', label: '月历' },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="首页视图切换"
+      className="inline-flex overflow-hidden rounded-md border border-sand bg-paper text-sm"
+    >
+      {opts.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          role="tab"
+          aria-selected={mode === o.key}
+          onClick={() => onChange(o.key)}
+          className={cn(
+            'px-4 py-1.5 transition-colors',
+            mode === o.key ? 'bg-pine text-white' : 'text-mist hover:bg-sand hover:text-ink',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

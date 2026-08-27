@@ -1,25 +1,10 @@
 import type { Member, Project, Stage, Task } from '../../core/types/entities';
 import { PROJECT_TYPE_LABELS, ProjectType } from '../../core/types/enums';
 import { useRoleGuard, isRestrictedView, taskAssigneeIds } from '../../hooks/useRoleGuard';
+import { currentStageOf } from '../../lib/progress';
 import { Badge } from '../common/Badge';
 import { AvatarStack } from '../common/AvatarStack';
 import { CountdownNumber } from '../common/CountdownNumber';
-
-/** 当前阶段推演（首页卡片徽章 + 倒计时共用） */
-export function currentStageOf(stages: Stage[], todayIso: string): Stage | undefined {
-  const visible = stages.filter((s) => s.visible !== false);
-  return (
-    visible.find(
-      (s) =>
-        s.status !== 'completed' && todayIso >= s.startAt.slice(0, 10) && todayIso <= s.endAt.slice(0, 10),
-    ) ??
-    visible
-      .filter((s) => s.status !== 'completed')
-      .sort((a, b) => a.orderIndex - b.orderIndex)
-      .find((s) => s.startAt.slice(0, 10) > todayIso) ??
-    visible.sort((a, b) => a.orderIndex - b.orderIndex).at(-1)
-  );
-}
 
 /** 项目卡片：封面缩略（色块）｜名称+类型｜当前阶段徽章｜倒计时｜负责人头像组｜进度细条 */
 export function ProjectCard({
