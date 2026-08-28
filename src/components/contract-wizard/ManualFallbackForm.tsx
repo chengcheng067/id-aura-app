@@ -12,6 +12,7 @@ import { MIN_STAGE_COUNT } from '../../core/template/split';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { defaultPresetKeyFor, presetKeyOfItems, StageSelectPanel } from './StageSelectPanel';
+import { Modal } from '../common/Modal';
 
 /**
  * 纯手动兜底建档（与向导并列可达，任何情况下都能建好档）。
@@ -86,12 +87,7 @@ export function ManualFallbackForm({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <Modal open={open} onClose={onClose} ariaLabel="手动建档">
       <div className="glass-strong iridescent-border dialog-pop flex max-h-[92vh] w-full max-w-lg flex-col rounded-2xl shadow-soft">
         {/* 描边挂在外层固定框；滚动交给内层，避免虹彩描边伪元素随内容断层露线 */}
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -207,6 +203,6 @@ export function ManualFallbackForm({
         </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

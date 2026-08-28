@@ -11,6 +11,7 @@ import { dayjs } from '../../lib/date';
 import { cn } from '../../lib/cn';
 import { useProjectsStore } from '../../store/useProjectsStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { Modal } from '../common/Modal';
 
 /** ISO 周行首为周一 */
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'] as const;
@@ -111,18 +112,8 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="公司休息制度"
-        className="glass-strong iridescent-border dialog-pop absolute left-1/2 top-1/2 flex max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl shadow-soft"
-      >
+    <Modal open onClose={onClose} ariaLabel="公司休息制度">
+      <div className="glass-strong iridescent-border dialog-pop flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl shadow-soft">
         {/* 描边挂在外层固定框；滚动交给内层，避免虹彩描边伪元素随内容断层露线 */}
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="mb-3 flex items-start justify-between gap-4">
@@ -255,6 +246,6 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
         </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

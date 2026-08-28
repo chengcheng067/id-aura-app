@@ -11,6 +11,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { useRoleGuard } from '../../hooks/useRoleGuard';
 import { StatusPill } from '../common/StatusPill';
+import { Modal } from '../common/Modal';
 import { TaskChecklist } from './TaskChecklist';
 import { DelayHistoryTimeline } from './DelayHistoryTimeline';
 import { ResourcePathButton } from './ResourcePathButton';
@@ -56,14 +57,7 @@ export function StageDrawer({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end bg-ink/20"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) close();
-      }}
-      role="dialog"
-      aria-label={`阶段详情：${stage.name}`}
-    >
+    <Modal open onClose={close} placement="right" ariaLabel={`阶段详情：${stage.name}`}>
       <aside className="glass-strong dialog-pop flex h-full w-full max-w-xl flex-col border-l border-sand shadow-soft">
         {/* 头 */}
         <div className="flex items-center justify-between border-b border-sand bg-paper/60 px-5 py-3">
@@ -102,7 +96,7 @@ export function StageDrawer({
           </section>
         </div>
       </aside>
-    </div>
+    </Modal>
   );
 }
 
@@ -116,7 +110,7 @@ function DrawerFrame({
   onClose(): void;
 }): JSX.Element {
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-ink/20" onMouseDown={onClose}>
+    <Modal open onClose={onClose} placement="right" ariaLabel={title}>
       <aside className="flex h-full w-full max-w-xl flex-col border-l border-sand bg-paper p-5 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-display-md">{title}</h2>
@@ -126,7 +120,7 @@ function DrawerFrame({
         </div>
         {children}
       </aside>
-    </div>
+    </Modal>
   );
 }
 

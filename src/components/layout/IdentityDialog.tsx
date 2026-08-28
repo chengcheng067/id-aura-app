@@ -10,6 +10,7 @@ import { matchActiveMemberByName } from '../../hooks/useRoleGuard';
 import { createMemberActions } from '../../store/useMembersStore';
 import { ChangxiaError, MemberRoleKind } from '../../core/types/enums';
 import type { Member } from '../../core/types/entities';
+import { Modal } from '../common/Modal';
 
 /**
  * 身份进入对话框（增量架构 3.3 状态机 UI 承载）：
@@ -214,14 +215,10 @@ export function IdentityDialog(): JSX.Element | null {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={flow === 'admin_prompt' ? '首次使用引导' : flow === 'name_input' ? '输入身份' : '无法进入'}
+    <Modal
+      open
+      onClose={handleClose}
+      ariaLabel={flow === 'admin_prompt' ? '首次使用引导' : flow === 'name_input' ? '输入身份' : '无法进入'}
     >
       <div
         tabIndex={-1}
@@ -248,7 +245,7 @@ export function IdentityDialog(): JSX.Element | null {
         </div>
         {renderBody()}
       </div>
-    </div>
+    </Modal>
   );
 }
 

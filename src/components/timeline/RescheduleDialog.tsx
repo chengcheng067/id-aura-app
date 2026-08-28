@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { AlertTriangle, X } from 'lucide-react';
 
@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useMembersStore } from '../../store/useMembersStore';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
+import { Modal } from '../common/Modal';
 
 /**
  * 延期原因弹窗（PRD 硬规则 1）：
@@ -41,14 +42,6 @@ export function RescheduleDialog({
   // 任一阶段延后且原因为空 → 保存按钮 disabled（弹回逻辑）
   const canSave = !postponed || reason.trim().length > 0;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const submit = async (): Promise<void> => {
     if (!canSave) return;
     setSubmitting(true);
@@ -73,12 +66,7 @@ export function RescheduleDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <Modal open onClose={onClose} ariaLabel="改期确认">
       <div className="glass-strong iridescent-border dialog-pop w-full max-w-md rounded-2xl p-5 shadow-soft">
         <div className="mb-3 flex items-start justify-between">
           <h3 className="flex items-center gap-2 font-display text-display-md">
@@ -163,6 +151,6 @@ export function RescheduleDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
