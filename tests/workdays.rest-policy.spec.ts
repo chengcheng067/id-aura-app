@@ -11,8 +11,15 @@
 import { describe, it, expect } from 'vitest';
 
 import { dayjs } from '../src/lib/date';
-import { RestPolicyKind, ALL_REST_POLICIES, REST_POLICY_LABELS } from '../src/core/types/enums';
-import { DEFAULT_REST_POLICY } from '../src/core/types/entities';
+import {
+  RestPolicyKind,
+  ALL_REST_POLICIES,
+  REST_POLICY_LABELS,
+  ScheduleBasis,
+  ALL_SCHEDULE_BASIS,
+  SCHEDULE_BASIS_LABELS,
+} from '../src/core/types/enums';
+import { DEFAULT_REST_POLICY, DEFAULT_SCHEDULE_BASIS } from '../src/core/types/entities';
 import type { RestPolicyConfig } from '../src/core/types/entities';
 import {
   isoWeekOffset,
@@ -457,5 +464,73 @@ describe('休息制度枚举与默认配置', () => {
     expect(isRestDay('2026-09-12', DEFAULT_REST_POLICY)).toBe(true);
     expect(isRestDay('2026-09-13', DEFAULT_REST_POLICY)).toBe(true);
     expect(isRestDay('2026-09-14', DEFAULT_REST_POLICY)).toBe(false);
+  });
+});
+
+/* --------------------- 排期基准（项目级）与休息制度正交 --------------------- */
+
+describe('排期基准：枚举与默认配置', () => {
+  it('两个枚举值：Calendar=calendar、Workday=workday', () => {
+    expect(ScheduleBasis.Calendar).toBe('calendar');
+    expect(ScheduleBasis.Workday).toBe('workday');
+  });
+
+  it('文案为「按自然日 / 按工作日」', () => {
+    expect(SCHEDULE_BASIS_LABELS[ScheduleBasis.Calendar]).toBe('按自然日');
+    expect(SCHEDULE_BASIS_LABELS[ScheduleBasis.Workday]).toBe('按工作日');
+  });
+
+  it('ALL_SCHEDULE_BASIS 含两项且每项都有文案', () => {
+    expect(ALL_SCHEDULE_BASIS).toHaveLength(2);
+    expect(ALL_SCHEDULE_BASIS).toContain(ScheduleBasis.Calendar);
+    expect(ALL_SCHEDULE_BASIS).toContain(ScheduleBasis.Workday);
+    for (const b of ALL_SCHEDULE_BASIS) {
+      expect(SCHEDULE_BASIS_LABELS[b]).toBeTruthy();
+    }
+  });
+
+  it('硬约束：出厂默认排期基准为自然日（Calendar）', () => {
+    expect(DEFAULT_SCHEDULE_BASIS).toBe(ScheduleBasis.Calendar);
+    expect(DEFAULT_SCHEDULE_BASIS).not.toBe(ScheduleBasis.Workday);
+  });
+});
+
+describe('排期基准与休息制度正交（项目级 ≠ 公司级）', () => {
+  it('scheduleBasis 不属于 RestPolicyConfig', () => {
+    expect(Object.keys(DEFAULT_REST_POLICY)).not.toContain('scheduleBasis');
+    expect('scheduleBasis' in DEFAULT_REST_POLICY).toBe(false);
+  });
+
+  it('休息日判定 API 不消费排期基准（arity 恒为 2）', () => {
+    // isRestDay(date, policy) —— 没有 scheduleBasis 位，二者才是正交的
+    expect(isRestDay.length).toBe(2);
+    expect(isWorkday.length).toBe(2);
+  });
+
+  it('切换排期基准不改变任何一天的休息判定', () => {
+    const policy = bigSmall('2026-W36'); // W37 为小休周，周六上班
+    const sample = ['2026-09-07', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14'];
+    // 排期基准只决定「工期 N 天」的口径，不改变「哪天休息」
+    const perBasis = ALL_SCHEDULE_BASIS.map((basis) => ({
+      basis,
+      verdicts: sample.map((d) => isRestDay(d, policy)),
+    }));
+    expect(perBasis[0].verdicts).toEqual([false, false, false, true, false]);
+    expect(perBasis[1].verdicts).toEqual(perBasis[0].verdicts); // 两种基准结果逐项相同
+  });
+
+  it('两种基准都能与任意休息制度组合，且工作日计数只随制度变化', () => {
+    const expectedByKind: Record<RestPolicyKind, number> = {
+      [RestPolicyKind.DoubleOff]: 5,
+      [RestPolicyKind.SingleOff]: 6,
+      [RestPolicyKind.BigSmallWeek]: 6, // anchorWeek=null → 周六按上班
+    };
+    for (const basis of ALL_SCHEDULE_BASIS) {
+      expect(basis in SCHEDULE_BASIS_LABELS).toBe(true);
+      for (const kind of ALL_REST_POLICIES) {
+        const policy: RestPolicyConfig = { kind, anchorWeek: null };
+        expect(countWorkdays('2026-09-07', '2026-09-13', policy)).toBe(expectedByKind[kind]);
+      }
+    }
   });
 });
