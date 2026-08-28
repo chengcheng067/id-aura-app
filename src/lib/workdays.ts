@@ -149,6 +149,33 @@ export function addWorkdays(date: string, n: number, policy: RestPolicyConfig): 
   return cursor.format('YYYY-MM-DD');
 }
 
+/**
+ * 有符号加工作日（T5：拖拽改期按工作日顺延）。
+ * n>=0 与 addWorkdays 完全一致（起点向后吸附）；n<0 反向减工作日（起点向前吸附）。
+ * 修复 addWorkdays 只处理正数、缩短手势静默失效的问题。
+ */
+export function addWorkdaysSigned(date: string, n: number, policy: RestPolicyConfig): string {
+  const steps = Math.trunc(n);
+  if (steps >= 0) return addWorkdays(date, steps, policy);
+  let cursor = dayjs(snapToWorkday(date, policy, 'backward'));
+  let remaining = -steps;
+  while (remaining > 0) {
+    cursor = cursor.add(-1, 'day');
+    if (isWorkday(cursor.format('YYYY-MM-DD'), policy)) remaining -= 1;
+  }
+  return cursor.format('YYYY-MM-DD');
+}
+
+/**
+ * 方向感知吸附位移（T5）：先按自然日位移，再把结果吸附到工作日。
+ * 吸附方向 = 拖拽方向（delta>=0 向后、delta<0 向前），保证前拖缩短不会回卷到原日。
+ */
+export function snapShiftDate(date: string, deltaDays: number, policy: RestPolicyConfig): string {
+  const shifted = dayjs(date).add(Math.trunc(deltaDays), 'day').format('YYYY-MM-DD');
+  const dir = deltaDays >= 0 ? 'forward' : 'backward';
+  return snapToWorkday(shifted, policy, dir);
+}
+
 /** 两日期间的工作日天数（含头尾；end<start 时返回负数，口径同 countBusinessDays） */
 export function countWorkdays(
   start: string,

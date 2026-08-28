@@ -10,10 +10,13 @@ import {
   type TimelineRange,
 } from '../../lib/date';
 import type { Stage, Project, Member } from '../../core/types/entities';
+import { ScheduleBasis } from '../../core/types/enums';
 import { pickActiveStageId } from '../../lib/progress';
 import { useUiStore, type TimelineZoom } from '../../store/useUiStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useKeyboardPan } from '../../hooks/useKeyboardPan';
 import { useDragReschedule } from '../../hooks/useDragReschedule';
+import { addWorkdaysSigned, countWorkdays, snapShiftDate } from '../../lib/workdays';
 import { MonthScaleHeader } from './MonthScaleHeader';
 import { StageRowsColumn } from './StageRowsColumn';
 import { StageBar } from './StageBar';
@@ -69,8 +72,11 @@ export function TimelineView({
   const zoom = useUiStore((s) => s.timelineZoom);
   const setZoom = useUiStore((s) => s.setTimelineZoom);
   const openDrawer = useUiStore((s) => s.openStageDrawer);
+  const restPolicy = useSettingsStore((s) => s.restPolicy);
 
   const pxPerDay = ZOOM_PPD[zoom];
+  // T5：工作日口径开关（项目级排期基准）；Calendar/缺省走原自然日分支，逐字节不变
+  const useWorkday = project.scheduleBasis === ScheduleBasis.Workday;
 
   // 可视窗口：以阶段实际起止为边界，没有阶段时才回落到项目计划工期。
   // 不再以计划截止日期为终点——那会在最后阶段之后留下空白，用户会误以为数据缺失。
@@ -120,11 +126,15 @@ export function TimelineView({
           d.setUTCDate(d.getUTCDate() + dd);
           return d.toISOString().slice(0, 10);
         };
-        const newStart = dragEdge === 'start' ? shift(dStart, delta) : dStart;
-        const newEnd = dragEdge === 'end' ? shift(dEnd, delta) : dEnd;
+        // T5：口径化位移——Workday 项目按拖拽方向吸附到工作日，Calendar 保持自然日（逐字节不变）
+        const moveDate = (iso: string, dd: number): string =>
+          useWorkday ? snapShiftDate(iso, dd, restPolicy) : shift(iso, dd);
+        const newStart = dragEdge === 'start' ? moveDate(dStart, delta) : dStart;
+        const newEnd = dragEdge === 'end' ? moveDate(dEnd, delta) : dEnd;
+        // 倒置守卫：先吸附、再判倒置（吸附只会把边界移向工作日，不会扩大倒置面）
         if (new Date(newEnd) < new Date(newStart)) return; // 倒置直接忽略（回弹）
 
-        // 磁吸联动：当前阶段结束日期变化多少天，后续阶段整体顺延多少天
+        // 磁吸联动：主段结束日变化多少「单位」（Workday=工作日序号差 / Calendar=自然日差），后续阶段顺延多少单位
         const primary: PendingReschedule = {
           stageId,
           stageName: target.name,
@@ -133,25 +143,31 @@ export function TimelineView({
           newStartAt: newStart,
           newEndAt: newEnd,
         };
-        const deltaEnd = daysBetween(dEnd, newEnd);
+        const deltaEnd = useWorkday
+          ? countWorkdays(dStart, newEnd, restPolicy) - countWorkdays(dStart, dEnd, restPolicy)
+          : daysBetween(dEnd, newEnd);
         const sortedStages = [...stages].sort((a, b) => a.orderIndex - b.orderIndex);
         const followers: PendingReschedule[] =
           deltaEnd === 0
             ? []
             : sortedStages
                 .filter((s) => s.orderIndex > target.orderIndex)
-                .map((s) => ({
-                  stageId: s.id,
-                  stageName: s.name,
-                  oldStartAt: s.startAt.slice(0, 10),
-                  oldEndAt: s.endAt.slice(0, 10),
-                  newStartAt: shift(s.startAt.slice(0, 10), deltaEnd),
-                  newEndAt: shift(s.endAt.slice(0, 10), deltaEnd),
-                }));
+                .map((s) => {
+                  const sStart = s.startAt.slice(0, 10);
+                  const sEnd = s.endAt.slice(0, 10);
+                  return {
+                    stageId: s.id,
+                    stageName: s.name,
+                    oldStartAt: sStart,
+                    oldEndAt: sEnd,
+                    newStartAt: useWorkday ? addWorkdaysSigned(sStart, deltaEnd, restPolicy) : shift(sStart, deltaEnd),
+                    newEndAt: useWorkday ? addWorkdaysSigned(sEnd, deltaEnd, restPolicy) : shift(sEnd, deltaEnd),
+                  };
+                });
         setBatchPending({ items: [primary, ...followers], primaryIndex: 0 });
       });
     },
-    [drag, pxPerDay, stages],
+    [drag, pxPerDay, stages, restPolicy, useWorkday],
   );
 
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -242,22 +258,36 @@ export function TimelineView({
                 <TodayLine x={xOf(todayIso, range, pxPerDay)} height={stages.length * (ROW_H + ROW_GAP)} />
 
                 {/* 彩条层 */}
-                {stages.map((s, i) => (
-                  <StageBar
-                    key={s.id}
-                    stage={s}
-                    rowIndex={i}
-                    rowH={ROW_H}
-                    rowGap={ROW_GAP}
-                    range={range}
-                    pxPerDay={pxPerDay}
-                    active={s.id === activeStageId}
-                    draggingDeltaDays={drag.draggingStageId === s.id ? drag.deltaDays : null}
-                    draggingEdge={drag.draggingStageId === s.id ? drag.edge : null}
-                    onHandleDown={effectiveHandleDown}
-                    onClick={() => openDrawer(s.id)}
-                  />
-                ))}
+                {stages.map((s, i) => {
+                  const isDrag = drag.draggingStageId === s.id;
+                  const rawDelta = isDrag ? drag.deltaDays : null;
+                  // T5：Workday 口径下把实时 delta 换算成「吸附后的自然日差」，
+                  // 让彩条几何与日期气泡贴吸附日（StageBar 零改动）
+                  const displayDelta =
+                    rawDelta !== null && drag.edge && useWorkday
+                      ? (() => {
+                          const edgeIso =
+                            drag.edge === 'start' ? s.startAt.slice(0, 10) : s.endAt.slice(0, 10);
+                          return daysBetween(edgeIso, snapShiftDate(edgeIso, rawDelta, restPolicy));
+                        })()
+                      : rawDelta;
+                  return (
+                    <StageBar
+                      key={s.id}
+                      stage={s}
+                      rowIndex={i}
+                      rowH={ROW_H}
+                      rowGap={ROW_GAP}
+                      range={range}
+                      pxPerDay={pxPerDay}
+                      active={s.id === activeStageId}
+                      draggingDeltaDays={displayDelta}
+                      draggingEdge={isDrag ? drag.edge : null}
+                      onHandleDown={effectiveHandleDown}
+                      onClick={() => openDrawer(s.id)}
+                    />
+                  );
+                })}
               </svg>
             </div>
           </div>
