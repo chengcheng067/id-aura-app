@@ -18,6 +18,23 @@ const isDev = !app.isPackaged && useDevServer;
 const DIST = path.join(__dirname, '..', 'build-dist');
 const PROTOCOL = 'app';
 
+// 关键：必须在 app.whenReady() 之前注册 app:// 为 privileged scheme。
+// 前端用 <script type="module"> + createBrowserRouter，非 standard 协议下
+// Chromium 会以 CORS 拦截 module 脚本导致白屏；注册为 standard+secure+
+// corsEnabled+supportFetchAPI 后，module 脚本与 fetch 才能正常执行。
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: PROTOCOL,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
+
 /** 协议处理器：安全地读取 dist 下的文件，未命中则回退 index.html（SPA 回退） */
 function registerAppProtocol() {
   protocol.handle(PROTOCOL, (request) => {
