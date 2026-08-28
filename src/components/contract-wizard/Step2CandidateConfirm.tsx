@@ -229,7 +229,7 @@ export function Step2CandidateConfirm({
           }
           className="inline-flex items-center gap-1.5 rounded-md bg-pine px-4 py-2 text-sm text-white hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Check size={15} /> 确认信息，预览九阶段切分
+          <Check size={15} /> 确认信息，选择阶段
         </button>
       </div>
     </div>

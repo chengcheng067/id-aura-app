@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { X } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 
 import { useUiStore } from '../../store/useUiStore';
+import { DEFAULT_SCHEDULE_BASIS } from '../../core/types/entities';
+import type { ScheduleBasis } from '../../core/types/enums';
+import type { StageTemplateItem } from '../../core/types/dto';
+import { getPresetItems } from '../../core/template/stage-library';
+import { MIN_STAGE_COUNT } from '../../core/template/split';
 import { Step1SourceInput } from './Step1SourceInput';
 import { Step2CandidateConfirm } from './Step2CandidateConfirm';
 import { Step3SplitPreview } from './Step3SplitPreview';
+import { defaultPresetKeyFor, presetKeyOfItems, StageSelectPanel } from './StageSelectPanel';
 
 /**
- * 合同向导壳（三步状态机）：
- *   Step1 粘贴/上传 → Step2 候选卡片确认 → Step3 九阶段切分预览（可编辑）→ 确认建档。
+ * 合同向导壳（四步状态机）：
+ *   Step1 粘贴/上传 → Step2 候选卡片确认 → Step3 选择阶段（套餐/阶段池/调序）
+ *   → Step4 切分预览（可改名/改占比）→ 确认建档。
  * 任何一步都能退出；解析失败不阻断——引导 ManualFallbackForm 兜底。
  */
 export function ContractWizardDialog(): JSX.Element | null {
@@ -17,9 +24,12 @@ export function ContractWizardDialog(): JSX.Element | null {
   const close = useUiStore((s) => s.closeContractWizard);
   const openManual = useUiStore((s) => s.openManualForm);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [rawText, setRawText] = useState('');
   const [sourceFileName, setSourceFileName] = useState<string | null>(null);
+  /** Step3 所选阶段项（受控；经 selectionRef 跨步骤传递到 Step4） */
+  const [stageSelection, setStageSelection] = useState<StageTemplateItem[]>([]);
+  const [scheduleBasis, setScheduleBasis] = useState<ScheduleBasis>(DEFAULT_SCHEDULE_BASIS);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,6 +37,9 @@ export function ContractWizardDialog(): JSX.Element | null {
       setStep(1);
       setRawText('');
       setSourceFileName(null);
+      setStageSelection([]);
+      setScheduleBasis(DEFAULT_SCHEDULE_BASIS);
+      selectionRef.current = null;
     }
   }, [open]);
 
@@ -69,7 +82,7 @@ export function ContractWizardDialog(): JSX.Element | null {
 
         {/* 步骤指示 */}
         <ol className="mb-5 flex items-center gap-2 text-xs text-mist">
-          {['来源', '核对候选', '切分预览'].map((label, i) => (
+          {['来源', '核对候选', '选择阶段', '切分预览'].map((label, i) => (
             <li key={label} className="flex items-center gap-2">
               <span
                 className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${
@@ -79,7 +92,7 @@ export function ContractWizardDialog(): JSX.Element | null {
                 {i + 1}
               </span>
               <span className={step === i + 1 ? 'text-pine' : ''}>{label}</span>
-              {i < 2 && <span className="mx-1 h-px w-6 bg-sand" />}
+              {i < 3 && <span className="mx-1 h-px w-6 bg-sand" />}
             </li>
           ))}
         </ol>
@@ -103,18 +116,61 @@ export function ContractWizardDialog(): JSX.Element | null {
             sourceFileName={sourceFileName}
             onBack={() => setStep(1)}
             onConfirmed={(confirmedDraftInput) => {
-              setStep(3);
-              // confirmedDraftInput 暂存于本组件 state 由 Step3 读取（简单起见经闭包传递）
               confirmedRef.current = confirmedDraftInput;
+              // 进入阶段选择前按项目类型预选默认套餐（PRD §3.4）
+              setStageSelection(
+                getPresetItems(defaultPresetKeyFor(confirmedDraftInput.projectType)),
+              );
+              setScheduleBasis(DEFAULT_SCHEDULE_BASIS);
+              setStep(3);
             }}
           />
         )}
-        {step === 3 && (
+        {step === 3 && confirmedRef.current && (
+          <div>
+            <StageSelectPanel
+              selected={stageSelection}
+              onChange={setStageSelection}
+              projectType={confirmedRef.current.projectType}
+              scheduleBasis={scheduleBasis}
+              onScheduleBasisChange={setScheduleBasis}
+            />
+            <div className="mt-5 flex justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="inline-flex items-center gap-1 rounded-md border border-sand px-3 py-1.5 text-sm text-mist hover:bg-sand"
+              >
+                <ArrowLeft size={14} /> 返回核对
+              </button>
+              <button
+                type="button"
+                disabled={stageSelection.length < MIN_STAGE_COUNT}
+                onClick={() => {
+                  // 当前选择写入跨步骤引用，供 Step4 切分与建档消费
+                  selectionRef.current = {
+                    stageItems: stageSelection,
+                    stagePresetKey: presetKeyOfItems(stageSelection),
+                    scheduleBasis,
+                  };
+                  setStep(4);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-pine px-4 py-2 text-sm text-white hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                预览切分 →
+              </button>
+            </div>
+          </div>
+        )}
+        {step === 4 && confirmedRef.current && (
           <Step3SplitPreview
-            baseInput={confirmedRef.current ?? null}
+            baseInput={confirmedRef.current}
             rawTextForDigest={rawText}
             sourceFileName={sourceFileName}
-            onBack={() => setStep(2)}
+            stageItems={selectionRef.current?.stageItems}
+            stagePresetKey={selectionRef.current?.stagePresetKey ?? null}
+            scheduleBasis={selectionRef.current?.scheduleBasis}
+            onBack={() => setStep(3)}
             onDone={() => {
               close();
             }}
@@ -132,3 +188,12 @@ export function ContractWizardDialog(): JSX.Element | null {
 /** 向导内跨步骤的暂存引用（Step2 确认的基础信息草稿） */
 export const confirmedRef: { current: import('./Step2CandidateConfirm').ConfirmedBaseInput | null } =
   { current: null };
+
+/** 向导内跨步骤的暂存引用（Step3 确认的阶段选择：阶段项 / 套餐归属 / 排期基准） */
+export const selectionRef: {
+  current: {
+    stageItems: StageTemplateItem[];
+    stagePresetKey: string;
+    scheduleBasis: ScheduleBasis;
+  } | null;
+} = { current: null };

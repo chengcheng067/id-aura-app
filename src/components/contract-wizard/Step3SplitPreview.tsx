@@ -4,33 +4,46 @@ import { ArrowLeft, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { previewSplit } from '../../core/template/split';
-import type { StageDraft, ConfirmedContractPayload } from '../../core/types/dto';
-import { ChangxiaError } from '../../core/types/enums';
+import type { StageDraft, ConfirmedContractPayload, StageTemplateItem } from '../../core/types/dto';
+import { ChangxiaError, ScheduleBasis } from '../../core/types/enums';
+import { DEFAULT_SCHEDULE_BASIS } from '../../core/types/entities';
 import { createProjectActions, digestOf } from '../../store/useProjectsStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useRepos } from '../../hooks/useRepos';
 import type { ConfirmedBaseInput } from './Step2CandidateConfirm';
 
 /**
- * Step3：九阶段切分预览（起止/占比覆写可编辑）→ 确认建档。
+ * Step4：切分预览（起止/占比覆写可编辑；N 行由所选阶段子集决定）→ 确认建档。
  * 覆写后实时重算切分（纯函数 previewSplit，含 pinned 逻辑——此处仅暴露占比/名称覆写，
- * 起止整体由日期框驱动）。
+ * 起止整体由日期框驱动）。stageItems / scheduleBasis / restPolicy 透传给 previewSplit：
+ * 不传 stageItems / scheduleBasis 时行为与现状逐字节一致（九段自然日）。
  */
 export function Step3SplitPreview({
   baseInput,
   rawTextForDigest,
   sourceFileName,
+  stageItems,
+  stagePresetKey,
+  scheduleBasis,
   onBack,
   onDone,
 }: {
   baseInput: ConfirmedBaseInput | null;
   rawTextForDigest: string;
   sourceFileName: string | null;
+  /** 建档所选阶段子集（Step3 确认）；不传 → 回落到全量九段模板 */
+  stageItems?: StageTemplateItem[];
+  /** 套餐归属（溯源）；不传 → null */
+  stagePresetKey?: string | null;
+  /** 排期基准（Step3 确认）；不传 → 自然日 */
+  scheduleBasis?: ScheduleBasis;
   onBack(): void;
   onDone(): void;
 }): JSX.Element {
   const repos = useRepos();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const restPolicy = useSettingsStore((s) => s.restPolicy);
 
   const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
   const [ratioOverrides, setRatioOverrides] = useState<Record<number, number | ''>>({});
@@ -66,13 +79,20 @@ export function Step3SplitPreview({
           overrides[Number(k)] = { ...(overrides[Number(k)] ?? {}), ratioPercent: v };
         }
       }
-      return previewSplit({ startAt, endAt, overrides });
+      return previewSplit({
+        startAt,
+        endAt,
+        overrides,
+        stageItems,
+        scheduleBasis: scheduleBasis ?? DEFAULT_SCHEDULE_BASIS,
+        restPolicy,
+      });
     } catch (err) {
       setError(err instanceof ChangxiaError ? err.userMessage : '切分失败：请检查日期。');
       return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startAt, endAt, nameOverrides, ratioOverrides]);
+  }, [startAt, endAt, nameOverrides, ratioOverrides, stageItems, scheduleBasis, restPolicy]);
 
   useEffect(() => {
     if (drafts) setError(null);
@@ -94,6 +114,8 @@ export function Step3SplitPreview({
       startAt,
       endAt,
       stageOverrides: {},
+      stagePresetKey: stagePresetKey ?? null,
+      scheduleBasis: scheduleBasis ?? DEFAULT_SCHEDULE_BASIS,
       createdByManual: false,
       sourceFileName,
       rawTextDigest: digestOf(rawTextForDigest),

@@ -2,16 +2,21 @@ import { useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
-import { Check, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, X } from 'lucide-react';
 
-import { type ConfirmedContractPayload } from '../../core/types/dto';
-import { ProjectType, PROJECT_TYPE_LABELS } from '../../core/types/enums';
+import { type ConfirmedContractPayload, type StageTemplateItem } from '../../core/types/dto';
+import { ProjectType, PROJECT_TYPE_LABELS, type ScheduleBasis } from '../../core/types/enums';
+import { DEFAULT_SCHEDULE_BASIS } from '../../core/types/entities';
+import { getPresetItems } from '../../core/template/stage-library';
+import { MIN_STAGE_COUNT } from '../../core/template/split';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
+import { defaultPresetKeyFor, presetKeyOfItems, StageSelectPanel } from './StageSelectPanel';
 
 /**
  * 纯手动兜底建档（与向导并列可达，任何情况下都能建好档）。
  * 受控组件：由页面/顶栏控制显隐。
+ * 阶段选择：折叠区复用 StageSelectPanel；不展开直接提交 → 默认 indoor_full 九段（与改造前一致）。
  */
 export function ManualFallbackForm({
   open,
@@ -32,6 +37,13 @@ export function ManualFallbackForm({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  /** 阶段选择：默认预选「项目类型对应套餐」（Dining → indoor_full 九段） */
+  const [stageItems, setStageItems] = useState<StageTemplateItem[]>(() =>
+    getPresetItems(defaultPresetKeyFor(ProjectType.Dining)),
+  );
+  const [scheduleBasis, setScheduleBasis] = useState<ScheduleBasis>(DEFAULT_SCHEDULE_BASIS);
+  const [stagePanelOpen, setStagePanelOpen] = useState(false);
+
   if (!open) return null;
 
   const submit = async (): Promise<void> => {
@@ -42,6 +54,10 @@ export function ManualFallbackForm({
     }
     if (new Date(endAt).getTime() < new Date(startAt).getTime()) {
       setError('竣工日不能早于开始日。');
+      return;
+    }
+    if (stageItems.length < MIN_STAGE_COUNT) {
+      setError(`至少选择 ${MIN_STAGE_COUNT} 个阶段。`);
       return;
     }
     setSubmitting(true);
@@ -57,6 +73,9 @@ export function ManualFallbackForm({
       plannedStartAt: startAt,
       plannedEndAt: endAt,
       coverColor: null,
+      stageItems,
+      stagePresetKey: presetKeyOfItems(stageItems),
+      scheduleBasis,
     });
     setSubmitting(false);
     if (project) {
@@ -74,7 +93,7 @@ export function ManualFallbackForm({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="glass-strong iridescent-border dialog-pop w-full max-w-lg rounded-2xl p-5 shadow-soft">
+      <div className="glass-strong iridescent-border dialog-pop max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl p-5 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-display-md">手动建档</h3>
           <button
@@ -157,15 +176,42 @@ export function ManualFallbackForm({
           </div>
         </div>
 
+        {/* 阶段选择折叠区（复用 StageSelectPanel） */}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setStagePanelOpen((v) => !v)}
+            aria-expanded={stagePanelOpen}
+            className="flex w-full items-center justify-between rounded-md border border-sand bg-cream px-3 py-2 text-sm text-ink hover:bg-sand"
+          >
+            <span>
+              本次服务阶段 · 已选 {stageItems.length} 项
+              <span className="ml-2 text-xs text-mist">默认：室内·全流程 9 段</span>
+            </span>
+            {stagePanelOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </button>
+          {stagePanelOpen && (
+            <div className="mt-2 rounded-md border border-sand bg-paper p-3">
+              <StageSelectPanel
+                selected={stageItems}
+                onChange={setStageItems}
+                projectType={type}
+                scheduleBasis={scheduleBasis}
+                onScheduleBasisChange={setScheduleBasis}
+              />
+            </div>
+          )}
+        </div>
+
         {error && <p className="mt-3 text-sm leading-6 text-clay">{error}</p>}
 
         <button
           type="button"
-          disabled={submitting}
+          disabled={submitting || stageItems.length < MIN_STAGE_COUNT}
           onClick={() => void submit()}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-pine px-4 py-2 text-sm text-white hover:bg-pine-deep disabled:opacity-40"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-pine px-4 py-2 text-sm text-white hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Check size={15} /> 建档（按九阶段模板切分）
+          <Check size={15} /> 建档（按所选 {stageItems.length} 个阶段切分）
         </button>
       </div>
     </div>
