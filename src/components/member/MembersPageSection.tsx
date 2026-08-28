@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { Plus, UserRound, UserX, Crown, XCircle } from 'lucide-react';
+import { Plus, UserRound, UserX, Crown, XCircle, Pencil, Check, X } from 'lucide-react';
 
 import type { Member } from '../../core/types/entities';
 import { ChangxiaError, MemberRoleKind } from '../../core/types/enums';
@@ -12,17 +12,9 @@ import { useRoleGuard, countActiveAdmins } from '../../hooks/useRoleGuard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 /**
- * 成员管理区（首页内嵌）：列表 / 新增 / 停用 / 设管理员 / 取消管理员（F9）。
- * v0.2：仅管理员视角出现（HomePage 已按 isAdmin 双保险渲染）；
- *       每行「设为管理员」按钮（权限矩阵 #6）→ update(id, { roleKind: 'admin' })，
- *       被提升者退出身份后重新进入即管理员视角。
- * v0.3 变更 A（管理员降级）：
- *   - 管理员行新增「取消管理员」按钮（icon XCircle，与停用并排）；
- *   - 唯一 active 管理员时 disabled（title「系统至少需要一名管理员」）；
- *   - 确认回调内再校验一次唯一管理员（双保险，防 disabled 被绕过）；
- *   - 降级成功后必须 upsert 同步 members store → useRoleGuard 派生重算：
- *     降级自己 → 顶栏「管理员」徽标消失 + HomeRouteGuard 自动重定向 /my-tasks（零新机制）。
- * AVATAR_COLORS 为受控例外（规范 §3.1 允许头像底色 hex 场景，来源集中于此 + IdentityDialog）。
+ * 成员管理区（首页内嵌）：列表 / 新增 / 重命名 / 停用 / 设管理员 / 取消管理员。
+ * v0.2：仅管理员视角出现（HomePage 已按 isAdmin 双保险渲染）。
+ * v0.4.1：新增「重命名」入口——成员名字可随时修改，避免首字头像与实际姓名长期不一致。
  */
 export function MembersPageSection(): JSX.Element | null {
   const repos = useRepos();
@@ -52,10 +44,17 @@ export function MembersPageSection(): JSX.Element | null {
     setAdding(false);
   };
 
-  /** active 管理员计数（唯一管理员保护，口径=active && roleKind==='admin'） */
+  /** active 管理员计数（唯一管理员保护） */
   const activeAdminCount = countActiveAdmins(members);
 
-  /** 降级确认回调：双保险（按钮 disabled 之外的二次校验）+ 降级自己视角自动收敛 */
+  /** 重命名：为空或不变时不调用；失败由 actions.update 内部 toast */
+  const onRename = async (id: string, newName: string): Promise<void> => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    await actions.update(id, { name: trimmed });
+  };
+
+  /** 降级确认回调：双保险 */
   const onDemote = async (m: Member): Promise<void> => {
     setDemoteTarget(null);
     const fresh = useMembersStore.getState().members;
@@ -68,12 +67,8 @@ export function MembersPageSection(): JSX.Element | null {
     }
     try {
       const updated = await repos.members.update(m.id, { roleKind: MemberRoleKind.Member });
-      // 关键一步：必须 upsert 同步 store（只调 repo 不更新 store，降级自己不会自动收敛）
       useMembersStore.getState().upsert(updated);
       useProjectsStore.getState().pushToast('success', '已取消管理员身份');
-      // 若降级自己：useRoleGuard 重算 role='member' → isAdmin=false → isMember=true
-      //   → TopBar「管理员」徽标消失（MemberIdentityPicker 依赖 useRoleGuard 自动收敛）
-      //   → HomeRouteGuard 检测 isMember → <Navigate to="/my-tasks" replace />（页面级自动跳转）
     } catch (err) {
       useProjectsStore
         .getState()
@@ -146,6 +141,7 @@ export function MembersPageSection(): JSX.Element | null {
               onToggle={() => void actions.setActive(m.id, !m.active)}
               onPromote={() => void actions.update(m.id, { roleKind: MemberRoleKind.Admin })}
               onDemote={() => setDemoteTarget(m)}
+              onRename={(name) => void onRename(m.id, name)}
             />
           ))}
         </ul>
@@ -174,71 +170,140 @@ function MemberRow({
   onToggle,
   onPromote,
   onDemote,
+  onRename,
 }: {
   member: Member;
   isLastAdmin: boolean;
   onToggle(): void;
   onPromote(): void;
   onDemote(): void;
+  onRename(name: string): void;
 }): JSX.Element {
   const isAdminMember = member.roleKind === MemberRoleKind.Admin;
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(member.name);
+
+  // 外部同步（如其他窗口/逻辑改了名字）
+  useEffect(() => {
+    setEditName(member.name);
+  }, [member.name]);
+
+  const save = (): void => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== member.name) {
+      onRename(trimmed);
+    }
+    setEditing(false);
+  };
+
+  const cancel = (): void => {
+    setEditing(false);
+    setEditName(member.name);
+  };
+
   return (
     <li className="flex items-center gap-3 py-2">
       <span
-        className="flex h-7 w-7 items-center justify-center rounded-full text-xs text-white"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs text-white"
         style={{ backgroundColor: member.avatarColor }}
       >
         {member.name[0]}
       </span>
-      <span className={`text-sm ${member.active ? 'text-ink' : 'text-mist'}`}>{member.name}</span>
-      <span className="text-xs text-mist">{member.role}</span>
-      {isAdminMember && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-pine-soft px-1.5 py-0.5 text-[10px] font-medium text-pine-deep">
-          <Crown size={10} /> 管理员
-        </span>
-      )}
-      {member.contact && <span className="hidden text-xs text-mist sm:inline">{member.contact}</span>}
-      <span className="ml-auto flex items-center gap-2">
-        {!isAdminMember && member.active && (
+
+      {editing ? (
+        <>
+          <input
+            autoFocus
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') cancel();
+            }}
+            placeholder="姓名"
+            className="min-w-0 flex-1 rounded-md border border-pine/50 bg-paper px-2 py-1 text-sm text-ink outline-none focus:border-pine"
+          />
           <button
             type="button"
-            onClick={onPromote}
-            title="设为管理员（被提升者退出身份后重新进入即为管理员视角）"
+            onClick={save}
+            title="保存"
+            className="inline-flex items-center gap-1 rounded-md border border-pine bg-pine-soft px-2 py-1 text-xs text-pine-deep hover:bg-pine/20"
+          >
+            <Check size={12} /> 保存
+          </button>
+          <button
+            type="button"
+            onClick={cancel}
+            title="取消"
+            className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand"
+          >
+            <X size={12} /> 取消
+          </button>
+        </>
+      ) : (
+        <>
+          <span className={`text-sm ${member.active ? 'text-ink' : 'text-mist'}`}>{member.name}</span>
+          <span className="text-xs text-mist">{member.role}</span>
+          {isAdminMember && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-pine-soft px-1.5 py-0.5 text-[10px] font-medium text-pine-deep">
+              <Crown size={10} /> 管理员
+            </span>
+          )}
+          {member.contact && <span className="hidden text-xs text-mist sm:inline">{member.contact}</span>}
+        </>
+      )}
+
+      {!editing && (
+        <span className="ml-auto flex items-center gap-2">
+          {!isAdminMember && member.active && (
+            <button
+              type="button"
+              onClick={onPromote}
+              title="设为管理员"
+              className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-pine"
+            >
+              <Crown size={12} /> 设为管理员
+            </button>
+          )}
+          {isAdminMember && member.active && (
+            <button
+              type="button"
+              onClick={onDemote}
+              disabled={isLastAdmin}
+              title={isLastAdmin ? '系统至少需要一名管理员' : '取消管理员'}
+              className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-clay disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <XCircle size={12} /> 取消管理员
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            title="重命名"
             className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-pine"
           >
-            <Crown size={12} /> 设为管理员
+            <Pencil size={12} /> 重命名
           </button>
-        )}
-        {isAdminMember && member.active && (
           <button
             type="button"
-            onClick={onDemote}
-            disabled={isLastAdmin}
-            title={isLastAdmin ? '系统至少需要一名管理员' : '取消管理员（降级为普通成员）'}
-            className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-clay disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={onToggle}
+            title={member.active ? '停用成员' : '重新启用'}
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
+              member.active ? 'border-sand text-mist hover:bg-sand' : 'border-sand text-pine hover:bg-sand'
+            }`}
           >
-            <XCircle size={12} /> 取消管理员
+            {member.active ? (
+              <>
+                <UserX size={12} /> 停用
+              </>
+            ) : (
+              <>
+                <UserRound size={12} /> 启用
+              </>
+            )}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={onToggle}
-          title={member.active ? '停用成员' : '重新启用'}
-          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
-            member.active ? 'border-sand text-mist hover:bg-sand' : 'border-sand text-pine hover:bg-sand'
-          }`}
-        >
-          {member.active ? (
-            <>
-              <UserX size={12} /> 停用
-            </>
-          ) : (
-            <>
-              <UserRound size={12} /> 启用
-            </>
-          )}
-        </button>
-      </span>
+        </span>
+      )}
     </li>
   );
 }
