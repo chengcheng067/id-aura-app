@@ -2,9 +2,11 @@ import { Outlet } from 'react-router-dom';
 
 import { TopBar } from './TopBar';
 import { IdentityDialog } from './IdentityDialog';
+import { ManualFallbackForm } from '../contract-wizard/ManualFallbackForm';
 import { useProjectsBootstrap } from '../../hooks/useProjectsBootstrap';
 import { useFirstRunGate } from '../../hooks/useFirstRunGate';
 import { useProjectsStore } from '../../store/useProjectsStore';
+import { useUiStore } from '../../store/useUiStore';
 
 /**
  * 应用壳：米白底大面积留白 + 顶栏 + 路由出口；挂载全局 Toast 容器。
@@ -15,6 +17,8 @@ export function AppShell(): JSX.Element {
   useFirstRunGate();
   const toasts = useProjectsStore((s) => s.toasts);
   const dismissToast = useProjectsStore((s) => s.dismissToast);
+  const manualFormOpen = useUiStore((s) => s.manualFormOpen);
+  const closeManualForm = useUiStore((s) => s.closeManualForm);
 
   return (
     <div className="min-h-screen bg-cream font-body text-ink">
@@ -24,6 +28,8 @@ export function AppShell(): JSX.Element {
       </main>
       {/* 身份进入对话框（first-run 管理员确立 / 成员姓名进入 / 未命中提示） */}
       <IdentityDialog />
+      {/* 手动建档兜底：全局挂载，「新建项目」直接打开（v0.3 移除导入合同建档入口后） */}
+      <ManualFallbackForm open={manualFormOpen} onClose={closeManualForm} />
       {/* 瞬时 Toast 层（≤2s，无 loading 圈；v0.3 玻璃化） */}
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2">
         {toasts.map((t) => (

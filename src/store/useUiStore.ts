@@ -20,7 +20,6 @@ export interface CalendarFilters {
 
 export interface UiState {
   stageDrawerStageId: string | null; // 打开的抽屉对应阶段
-  contractWizardOpen: boolean;
   manualFormOpen: boolean;
   timelineZoom: TimelineZoom;
 
@@ -41,8 +40,6 @@ export interface UiState {
   setSearchQuery(query: string): void;
   setSelectedProjectId(projectId: string | null): void;
   closeStageDrawer(): void;
-  openContractWizard(): void;
-  closeContractWizard(): void;
   openManualForm(): void;
   closeManualForm(): void;
   setTimelineZoom(zoom: TimelineZoom): void;
@@ -62,7 +59,6 @@ function currentMonthIso(): string {
 
 export const useUiStore = create<UiState>((set) => ({
   stageDrawerStageId: null,
-  contractWizardOpen: false,
   manualFormOpen: false,
   timelineZoom: 'month',
 
@@ -77,9 +73,7 @@ export const useUiStore = create<UiState>((set) => ({
 
   openStageDrawer: (stageId) => set({ stageDrawerStageId: stageId }),
   closeStageDrawer: () => set({ stageDrawerStageId: null }),
-  openContractWizard: () => set({ contractWizardOpen: true, manualFormOpen: false }),
-  closeContractWizard: () => set({ contractWizardOpen: false }),
-  openManualForm: () => set({ manualFormOpen: true, contractWizardOpen: false }),
+  openManualForm: () => set({ manualFormOpen: true }),
   closeManualForm: () => set({ manualFormOpen: false }),
   setTimelineZoom: (zoom) => set({ timelineZoom: zoom }),
 

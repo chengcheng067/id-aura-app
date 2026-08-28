@@ -1,13 +1,9 @@
-import { useEffect, useState } from 'react';
-
 import { useNavigate } from 'react-router-dom';
 
 import { ProjectCard } from '../components/project/ProjectCard';
 import { StatCard } from '../components/project/StatCard';
 import { ArchiveListRow } from '../components/project/ArchiveListRow';
 import { MembersPageSection } from '../components/member/MembersPageSection';
-import { ManualFallbackForm } from '../components/contract-wizard/ManualFallbackForm';
-import { subscribeManualForm } from '../components/project/NewProjectMenu';
 import { MonthlyCalendarView } from '../components/calendar/MonthlyCalendarView';
 import { useProjectsStore } from '../store/useProjectsStore';
 import { useMembersStore } from '../store/useMembersStore';
@@ -36,10 +32,8 @@ export function HomePage(): JSX.Element {
   const setSearchQuery = useUiStore((s) => s.setSearchQuery);
   const selectedProjectId = useUiStore((s) => s.selectedProjectId);
   const setSelectedProjectId = useUiStore((s) => s.setSelectedProjectId);
-
-  // 手动建档显隐：本地 state + 订阅顶栏菜单广播
-  const [manualOpen, setManualOpen] = useState(false);
-  useEffect(() => subscribeManualForm(setManualOpen), []);
+  // 手动建档显隐统走 store（AppShell 全局挂载表单），此处仅需打开意图
+  const openManual = useUiStore((s) => s.openManualForm);
 
   const today = new Date();
   const todayIso = localIso(today);
@@ -88,7 +82,7 @@ export function HomePage(): JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       {homeViewMode === 'calendar' ? (
-        <MonthlyCalendarView onManual={() => setManualOpen(true)} />
+        <MonthlyCalendarView onManual={openManual} />
       ) : (
         <>
           {/* 统计概览行（参考稿 §统计概览行） */}
@@ -101,7 +95,7 @@ export function HomePage(): JSX.Element {
 
           {/* 四列看板 */}
           {active.length === 0 ? (
-            <EmptyState onManual={() => setManualOpen(true)} />
+            <EmptyState onManual={openManual} />
           ) : filtered.length === 0 ? (
             <div className="glass-light rounded-[16px] border border-dashed border-sand p-10 text-center">
               <p className="font-display text-display-md text-mist">没有匹配「{searchQuery}」的项目</p>
@@ -160,9 +154,6 @@ export function HomePage(): JSX.Element {
           )}
         </>
       )}
-
-      {/* 手动建档兜底（顶栏菜单或空态触发） */}
-      <ManualFallbackForm open={manualOpen} onClose={() => setManualOpen(false)} />
 
       {/* 成员管理（权限矩阵 #5：仅 admin；路由守卫已把成员重定向出首页，这里双保险） */}
       {isAdmin && <MembersPageSection />}
@@ -253,7 +244,7 @@ function EmptyState({ onManual }: { onManual(): void }): JSX.Element {
     <div className="glass-light rounded-[16px] border border-dashed border-sand p-10 text-center">
       <p className="font-display text-display-md text-mist">还没有进行中的项目</p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-mist">
-        用顶部「新建项目 → 导入合同建档」粘贴合同文本试试；扫描件识别不了？任何情况下都可以先手动建档。
+        点击左上角「新建项目」创建你的第一个项目；项目名称与竣工日为必填，其余可在进入后随时补充。
       </p>
       <p className="mx-auto mt-3 max-w-md rounded-[16px] bg-cream px-4 py-3 text-xs leading-5 text-mist">
         你的数据自动保存在本机浏览器中，关闭浏览器不会丢失；如需换电脑或留档，点击顶栏「保存备份」导出文件，随时可再恢复。
