@@ -14,7 +14,13 @@
 import type { StageDraft, StageOverride, StageTemplateItem } from '../types/dto';
 import { getTemplateStages } from './nine-stages';
 import { legacyColorIndexOf, legacyTemplateKeyOf } from './stage-fallback';
-import { ChangxiaError, ChangxiaErrorCode, StageStatus } from '../types/enums';
+import { ChangxiaError, ChangxiaErrorCode, ScheduleBasis, StageStatus } from '../types/enums';
+import {
+  DEFAULT_REST_POLICY,
+  DEFAULT_SCHEDULE_BASIS,
+  type RestPolicyConfig,
+} from '../types/entities';
+import { addWorkdays, countWorkdays } from '../../lib/workdays';
 import { toIsoDate } from '../../lib/date';
 
 /** 默认时间轴配色 index（阶段 s1..s9 token，从 1 起） */
@@ -38,6 +44,10 @@ export interface SplitInput {
    * **未传（undefined）→ 回落到 getTemplateStages() 全量九段**，行为与改造前完全一致。
    */
   stageItems?: StageTemplateItem[];
+  /** 排期基准：不传 → DEFAULT_SCHEDULE_BASIS（自然日）。Workday 时按休息制度跳过休息日切分。 */
+  scheduleBasis?: ScheduleBasis;
+  /** 公司休息制度：不传 → DEFAULT_REST_POLICY（双休）。仅 scheduleBasis=Workday 时消费。 */
+  restPolicy?: RestPolicyConfig;
 }
 
 interface SegmentSpan {
@@ -111,14 +121,18 @@ function applyPins(
   totalDays: number,
   pins: Map<number, { pinStart?: string; pinEnd?: string }>,
   baseStart: string,
+  /** 日期 → 单位偏移（自然日口径 = 天偏移；工作日口径 = 工作日序号偏移）。不传走默认自然日。 */
+  offsetOf?: (iso: string) => number,
 ): SegmentSpan[] {
   if (pins.size === 0) return spans;
 
   const MS_DAY = 86400000;
   const baseMs = new Date(`${baseStart}T00:00:00Z`).getTime();
-  /** iso 日期 → 相对基准日的天偏移 */
-  const off = (iso: string): number =>
-    Math.round((new Date(`${iso}T00:00:00Z`).getTime() - baseMs) / MS_DAY);
+  /** iso 日期 → 相对基准日的单位偏移（自然日口径为天偏移；工作日口径为工作日序号） */
+  const off =
+    offsetOf ??
+    ((iso: string): number =>
+      Math.round((new Date(`${iso}T00:00:00Z`).getTime() - baseMs) / MS_DAY));
 
   const conflict = (msg: string): ChangxiaError =>
     new ChangxiaError(ChangxiaErrorCode.Conflict, msg);
@@ -290,6 +304,9 @@ function resolveSplitStages(stageItems: StageTemplateItem[] | undefined): SplitS
  */
 export function previewSplit(input: SplitInput): StageDraft[] {
   const { startAt, endAt, overrides } = input;
+  const basis = input.scheduleBasis ?? DEFAULT_SCHEDULE_BASIS;
+  const policy = input.restPolicy ?? DEFAULT_REST_POLICY;
+  const useWorkday = basis === ScheduleBasis.Workday;
 
   const startDate = toIsoDate(startAt);
   const endDate = toIsoDate(endAt);
@@ -301,7 +318,19 @@ export function previewSplit(input: SplitInput): StageDraft[] {
   if (endD.getTime() < startD.getTime()) {
     throw new ChangxiaError(ChangxiaErrorCode.Validation, '截止日期早于开始日期。');
   }
-  const totalDays = Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1;
+
+  // 总单位数：自然日口径 = 自然日天数；工作日口径 = 区间内工作日数（含头尾，跳过休息日）
+  const totalUnits = useWorkday
+    ? countWorkdays(startDate, endDate, policy)
+    : Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1;
+  if (totalUnits < 1) {
+    throw new ChangxiaError(
+      ChangxiaErrorCode.Validation,
+      useWorkday
+        ? '该工期范围内没有任何工作日，无法按工作日排期。请调整起止日期或休息制度。'
+        : '项目起止日期无效。',
+    );
+  }
 
   const templateStages = resolveSplitStages(input.stageItems);
   // 子集内归一化：ratioPercent / ratioTotal * 100（沿用既有逻辑，删段后无需手调占比）
@@ -315,7 +344,7 @@ export function previewSplit(input: SplitInput): StageDraft[] {
   }
 
   let spans = initSpans(
-    totalDays,
+    totalUnits,
     ratios.map((r) => ({ ...r, ratioPercent: (r.ratioPercent / ratioTotal) * 100 })),
   ).spans;
 
@@ -330,8 +359,13 @@ export function previewSplit(input: SplitInput): StageDraft[] {
       pins.set(s.orderIndex, { pinStart: pinStart ?? undefined, pinEnd: pinEnd ?? undefined });
     }
   }
-  spans = applyPins(spans, totalDays, pins, startDate);
-  assertSum(spans, totalDays);
+  // 工作日口径下锚点日期 → 工作日序号偏移。
+  // 休息日锚点自然吸附到之前的工作日（countWorkdays 只数工作日，不含休息日本身）。
+  const offsetOf = useWorkday
+    ? (iso: string): number => countWorkdays(startDate, iso, policy) - 1
+    : undefined;
+  spans = applyPins(spans, totalUnits, pins, startDate, offsetOf);
+  assertSum(spans, totalUnits);
 
   const offsets = spansToOffsets(spans);
 
@@ -346,8 +380,12 @@ export function previewSplit(input: SplitInput): StageDraft[] {
       colorIndex: tpl?.colorIndex ?? stageColorIndex(seg.orderIndex),
       name: ov?.name ?? tpl?.name ?? `阶段 ${seg.orderIndex}`,
       ratioPercent: ov?.ratioPercent ?? tpl?.ratioPercent ?? 0,
-      startAt: addDaysIso(startDate, seg.startOff),
-      endAt: addDaysIso(startDate, seg.endOff),
+      startAt: useWorkday
+        ? addWorkdays(startDate, seg.startOff, policy)
+        : addDaysIso(startDate, seg.startOff),
+      endAt: useWorkday
+        ? addWorkdays(startDate, seg.endOff, policy)
+        : addDaysIso(startDate, seg.endOff),
       status: StageStatus.NotStarted as StageStatus,
       ownerId: null,
       visible: ov?.visible ?? true,

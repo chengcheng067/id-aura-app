@@ -17,7 +17,14 @@ import type {
   CreateProjectCmd,
 } from '../types/dto';
 import { ChangxiaError, ChangxiaErrorCode, ProjectType, StageLogType, StageStatus } from '../types/enums';
-import { DEFAULT_SCHEDULE_BASIS, type Project, type Stage, type Task } from '../types/entities';
+import {
+  DEFAULT_REST_POLICY,
+  DEFAULT_SCHEDULE_BASIS,
+  type Project,
+  type RestPolicyConfig,
+  type Stage,
+  type Task,
+} from '../types/entities';
 import type { IProjectsRepository } from '../repositories/interfaces';
 import type { LocalProjectsRepository } from '../repositories/local/local.projects.repo';
 
@@ -167,10 +174,15 @@ export class ProjectService {
    * 不传 stageItems → 回落全量九段模板（行为与改造前完全一致）。
    */
   public async createManualProject(cmd: CreateProjectCmd): Promise<Project> {
+    // 公司休息制度从 settings 读（公司级，非项目级）；损坏/缺失回落双休
+    const restPolicy =
+      (await this.deps.bundle.settings.get<RestPolicyConfig>('restPolicy')) ?? DEFAULT_REST_POLICY;
     const drafts = previewSplit({
       startAt: cmd.plannedStartAt,
       endAt: cmd.plannedEndAt,
       stageItems: cmd.stageItems,
+      scheduleBasis: cmd.scheduleBasis ?? DEFAULT_SCHEDULE_BASIS,
+      restPolicy,
     });
     const payload: ConfirmedContractPayload = {
       projectName: cmd.name,
