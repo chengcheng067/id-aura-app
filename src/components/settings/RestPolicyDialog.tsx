@@ -121,7 +121,7 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
         role="dialog"
         aria-modal="true"
         aria-label="公司休息制度"
-        className="glass-strong iridescent-border dialog-pop w-full max-w-lg rounded-2xl p-5 shadow-soft"
+        className="glass-strong iridescent-border dialog-pop max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl p-5 shadow-soft"
       >
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>

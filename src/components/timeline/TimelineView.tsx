@@ -75,17 +75,21 @@ export function TimelineView({
 
   const pxPerDay = ZOOM_PPD[zoom];
 
-  // 可视窗口：以所有阶段的实际起止为边界，外扩 7 天；确保磁吸联动延后也能完整显示。
+  // 可视窗口：以项目计划工期为基准，阶段实际日期超出时再扩展。
+  // 不再左右外扩 7 天——那会在首尾制造无意义空白，用户会误以为数据缺失。
   const baseRange = useMemo<TimelineRange>(() => {
-    const startSources = stages.length > 0 ? stages.map((s) => s.startAt.slice(0, 10)) : [project.plannedStartAt.slice(0, 10)];
-    const endSources = stages.length > 0 ? stages.map((s) => s.endAt.slice(0, 10)) : [project.plannedEndAt.slice(0, 10)];
-    const minStart = startSources.reduce((a, b) => (a < b ? a : b));
-    const maxEnd = endSources.reduce((a, b) => (a > b ? a : b));
-    const from = new Date(`${minStart}T00:00:00Z`);
-    const to = new Date(`${maxEnd}T00:00:00Z`);
-    from.setUTCDate(from.getUTCDate() - 7);
-    to.setUTCDate(to.getUTCDate() + 7);
-    return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+    const plannedStart = project.plannedStartAt.slice(0, 10);
+    const plannedEnd = project.plannedEndAt.slice(0, 10);
+    const stageStart = stages.length > 0
+      ? stages.map((s) => s.startAt.slice(0, 10)).reduce((a, b) => (a < b ? a : b))
+      : plannedStart;
+    const stageEnd = stages.length > 0
+      ? stages.map((s) => s.endAt.slice(0, 10)).reduce((a, b) => (a > b ? a : b))
+      : plannedEnd;
+    return {
+      from: stageStart < plannedStart ? stageStart : plannedStart,
+      to: stageEnd > plannedEnd ? stageEnd : plannedEnd,
+    };
   }, [project.plannedStartAt, project.plannedEndAt, stages]);
 
   const [range, setRange] = useState<TimelineRange>(baseRange);

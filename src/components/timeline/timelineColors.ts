@@ -36,4 +36,4 @@ export const TODAY_LINE_COLOR = '#f06548';
  * 休息日竖向条带（tailwind token rest-day.band，T7）。
  * 半透明叠加在行底纹之上——只做语义底纹，不改变 xOf 的自然日线性映射。
  */
-export const REST_DAY_BAND = 'rgba(255,255,255,0.05)';
+export const REST_DAY_BAND = 'rgba(255,255,255,0.03)';
