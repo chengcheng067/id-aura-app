@@ -104,3 +104,104 @@ export function schedulePngFileName(projectName: string, now: Date = new Date())
   const safeName = projectName.replace(/[\\/:*?"<>|]/g, '_').slice(0, 24);
   return `id-plan-schedule-${safeName || 'project'}-${ts}.png`;
 }
+
+/* ---------------------------------------------------------------------------
+ * A4 分页（v0.4.1）：
+ * 旧实现把整份日程表一次性 html2canvas 截成单张 PNG → 内容越多图越细长，
+ * 且 @media print 的 A4 / break-inside 规则对屏幕渲染无效，导致表格被拉断、
+ * 颜色割裂。改为「按 A4 页高估算分页 → 每页独立渲染 → 逐页导出 PNG」。
+ * ------------------------------------------------------------------------- */
+
+/** A4 纸张像素尺寸（96dpi） */
+export const A4_WIDTH_PX = 794;
+export const A4_HEIGHT_PX = 1123;
+
+/** 高度估算常量（px，与 SchedulePrintPage 的行高/间距保持同量级） */
+const EST = {
+  sectionHeader: 46,
+  row: 30,
+  emptySection: 36,
+  sectionGap: 20,
+  /** 第一页额外的页头：项目信息 + 时间轴摘要 */
+  firstPageHeader: 190,
+  pageHeaderBand: 56,
+  pageFooter: 44,
+  pagePadding: 80,
+};
+
+/** 单个阶段 section 的估算高度 */
+export function estimateSectionHeight(s: ScheduleSection): number {
+  const rows = s.tasks.length === 0 ? EST.emptySection : s.tasks.length * EST.row;
+  return EST.sectionHeader + rows + EST.sectionGap;
+}
+
+/**
+ * 把阶段 section 分配到 A4 页：
+ *   - 第一页额外扣除页头（项目信息 + 时间轴摘要）高度；
+ *   - 超过可用高度即换页，保证 section 不被切断（break-inside 语义）。
+ * 纯函数可测，返回二维数组（每个元素 = 一页的 sections）。
+ */
+export function paginateSections(sections: ScheduleSection[]): ScheduleSection[][] {
+  const usable = A4_HEIGHT_PX - EST.pagePadding - EST.pageHeaderBand - EST.pageFooter;
+  const pages: ScheduleSection[][] = [];
+  let current: ScheduleSection[] = [];
+  let used = 0;
+  let isFirstPage = true;
+
+  for (const s of sections) {
+    const h = estimateSectionHeight(s);
+    const limit = usable - (isFirstPage ? EST.firstPageHeader : 0);
+    // 首个 section 即便超高也放入当前页（避免死循环）
+    if (current.length > 0 && used + h > limit) {
+      pages.push(current);
+      current = [];
+      used = 0;
+      isFirstPage = false;
+    }
+    current.push(s);
+    used += h;
+  }
+  if (current.length > 0) pages.push(current);
+  return pages.length > 0 ? pages : [[]];
+}
+
+/** 文件名加页码后缀：xxx.png → xxx-p1of3.png（单页时保持不变） */
+export function withPageSuffix(name: string, page: number, total: number): string {
+  if (total <= 1) return name;
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : '.png';
+  return `${base}-p${page}of${total}${ext}`;
+}
+
+/**
+ * 逐页导出 PNG（每个元素 = 一页 A4 容器）。
+ * 浏览器可能拦截瞬时连下载，故每页之间留 300ms 间隔。
+ */
+export async function exportSchedulePngPages(
+  elements: HTMLElement[],
+  baseFileName: string,
+): Promise<void> {
+  const html2canvas = (await import('html2canvas')).default;
+  for (let i = 0; i < elements.length; i++) {
+    const canvas = await html2canvas(elements[i], {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      throw new Error(`PNG 导出失败：第 ${i + 1} 页无法生成图像数据。`);
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = withPageSuffix(baseFileName, i + 1, elements.length);
+    a.click();
+    URL.revokeObjectURL(url);
+    if (i < elements.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+}

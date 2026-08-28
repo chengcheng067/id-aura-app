@@ -5,14 +5,14 @@
  * 头像底色 hex（AVATAR_COLORS / Member.avatarColor）为受控例外（规范 §3.1 注释允许），不在此列。
  */
 
-/** 时间轴行底纹：激活阶段整行高亮（v0.4 灰底浮层面板 #3c3c40） */
-export const ROW_BG_ACTIVE = '#3c3c40';
+/** 时间轴行底纹：激活阶段整行高亮（v0.4.1 对比度微调：#3c3c40 → #42424a，比奇数行更亮一档） */
+export const ROW_BG_ACTIVE = '#42424a';
 
-/** 时间轴行底纹：偶数行（v0.4 灰底 surface-base #2a2a2c） */
-export const ROW_BG_EVEN = '#2a2a2c';
+/** 时间轴行底纹：偶数行（v0.4.1 对比度微调：surface-base #2a2a2c → #26262a） */
+export const ROW_BG_EVEN = '#26262a';
 
-/** 时间轴行底纹：奇数行（v0.4 灰底 surface-raised #353538） */
-export const ROW_BG_ODD = '#353538';
+/** 时间轴行底纹：奇数行（v0.4.1 对比度微调：surface-raised #353538 → #3a3a40） */
+export const ROW_BG_ODD = '#3a3a40';
 
 /** 激活彩条描边（原墨绿 #2E5548 → accent #6ea8fe） */
 export const STAGE_ACTIVE_STROKE = '#6ea8fe';
@@ -31,3 +31,9 @@ export const RING_TEXT = '#f7f7fa';
 
 /** 今日线（semantic-danger #f06548；原 v0.2 clay 旧值 #C4553B 已收敛） */
 export const TODAY_LINE_COLOR = '#f06548';
+
+/**
+ * 休息日竖向条带（tailwind token rest-day.band，T7）。
+ * 半透明叠加在行底纹之上——只做语义底纹，不改变 xOf 的自然日线性映射。
+ */
+export const REST_DAY_BAND = 'rgba(255,255,255,0.05)';

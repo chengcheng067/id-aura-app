@@ -12,13 +12,15 @@
 
 :root {
   /* 供个别无法继承 Tailwind 类的场景（如 SVG 内联 attr）使用的变量镜像——灰底液态玻璃值 */
-  --color-cream: #2a2a2c;
-  --color-paper: #353538;
+  --color-cream: #26262a;
+  --color-paper: #3a3a40;
   --color-ink: #f7f7fa;
   --color-mist: #a0a0a8;
   --color-pine: #6ea8fe;
   --color-amber: #e5b042;
   --color-clay: #f06548;
+  --color-rest-day: #31313a;
+  --color-rest-day-band: rgba(255, 255, 255, 0.05);
 
   /* 规范令牌镜像 */
   --accent-default: #6ea8fe;
@@ -33,7 +35,7 @@
   --text-primary: #f7f7fa;
   --text-secondary: #a0a0a8;
   --text-tertiary: #6e6e78;
-  --border-default: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.12);
   --border-strong: rgba(255, 255, 255, 0.12);
   --border-accent: rgba(110, 168, 254, 0.35);
   --glass-border: rgba(255, 255, 255, 0.06);
@@ -63,7 +65,7 @@
     background:
       radial-gradient(1200px 600px at 15% -5%, rgba(110, 168, 254, 0.03), transparent 60%),
       radial-gradient(1000px 500px at 90% 0%, rgba(167, 139, 250, 0.025), transparent 60%),
-      #2a2a2c;
+      #26262a;
   }
 
   h1,
@@ -89,10 +91,10 @@
 /* 统一结构：background(glass) + backdrop-filter(blur) + border + 顶部高光 inset + 内辉光 inset + 外投影 */
 
 .glass-strong {
-  background: rgba(60, 60, 64, 0.82);
+  background: rgba(66, 68, 74, 0.92);
   backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 0 40px rgba(110, 168, 254, 0.05),
@@ -100,10 +102,10 @@
 }
 
 .glass-medium {
-  background: rgba(60, 60, 64, 0.7);
+  background: rgba(63, 65, 71, 0.82);
   backdrop-filter: blur(16px) saturate(120%);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 0 40px rgba(110, 168, 254, 0.05),
@@ -111,10 +113,10 @@
 }
 
 .glass-light {
-  background: rgba(60, 60, 64, 0.55);
+  background: rgba(58, 60, 66, 0.6);
   backdrop-filter: blur(8px) saturate(100%);
   -webkit-backdrop-filter: blur(8px) saturate(100%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 0 32px rgba(110, 168, 254, 0.04),
@@ -261,6 +263,13 @@
 
 /* ------------------------------ v0.3 变更 E：日程表打印视图（与暗色解耦，强制浅色） ------------------------------ */
 
+/* A4 纸面（v0.4.1：屏幕预览即白纸，导出 / 打印所见即所得） */
+.a4-page {
+  background: #fff;
+  color: #1e293b;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+
 @media print {
   @page {
     size: A4;
@@ -299,6 +308,13 @@
     page-break-inside: avoid;
   }
 
+  /* 强制浏览器打印背景色（时间轴摘要色块、状态图例小方块），避免导出 PDF 时失色 */
+  .schedule-bar-segment,
+  .schedule-status-dot {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   .schedule-table {
     border-collapse: collapse;
     width: 100%;
@@ -309,5 +325,33 @@
     border: 1px solid #cbd5e1;
     padding: 4px 8px;
     font-size: 11px;
+  }
+
+  /* A4 分页（v0.4.1）：去掉屏幕装饰，每页单独一张纸 */
+  main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-root {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .a4-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .a4-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }

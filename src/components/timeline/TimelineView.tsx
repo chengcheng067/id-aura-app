@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   buildHalfMonthTicks,
@@ -12,9 +12,11 @@ import {
 import type { Stage, Project, Member } from '../../core/types/entities';
 import { pickActiveStageId } from '../../lib/progress';
 import { useUiStore, type TimelineZoom } from '../../store/useUiStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useKeyboardPan } from '../../hooks/useKeyboardPan';
 import { useDragReschedule } from '../../hooks/useDragReschedule';
 import { MonthScaleHeader } from './MonthScaleHeader';
+import { RestDayBands } from './RestDayBands';
 import { StageRowsColumn } from './StageRowsColumn';
 import { StageBar } from './StageBar';
 import { TodayLine } from './TodayLine';
@@ -41,6 +43,12 @@ export interface PendingReschedule {
   newEndAt: string;
 }
 
+/** 批量改期（磁吸联动）：items 按 orderIndex 升序，primaryIndex 指向被拖动的阶段 */
+export interface BatchReschedule {
+  items: PendingReschedule[];
+  primaryIndex: number;
+}
+
 /**
  * 时间轴主视图容器：zoom 档位、坐标系、今日线、左锁定列、拖拽改期编排。
  * x=date 映射复用 lib/date.xOf / dateAtX（架构 T10 铁则）。
@@ -63,28 +71,38 @@ export function TimelineView({
   const zoom = useUiStore((s) => s.timelineZoom);
   const setZoom = useUiStore((s) => s.setTimelineZoom);
   const openDrawer = useUiStore((s) => s.openStageDrawer);
+  const restPolicy = useSettingsStore((s) => s.restPolicy);
 
   const pxPerDay = ZOOM_PPD[zoom];
 
-  // 可视窗口：项目起止外扩 7 天
+  // 可视窗口：以所有阶段的实际起止为边界，外扩 7 天；确保磁吸联动延后也能完整显示。
   const baseRange = useMemo<TimelineRange>(() => {
-    const from = new Date(`${project.plannedStartAt.slice(0, 10)}T00:00:00Z`);
-    const to = new Date(`${project.plannedEndAt.slice(0, 10)}T00:00:00Z`);
+    const startSources = stages.length > 0 ? stages.map((s) => s.startAt.slice(0, 10)) : [project.plannedStartAt.slice(0, 10)];
+    const endSources = stages.length > 0 ? stages.map((s) => s.endAt.slice(0, 10)) : [project.plannedEndAt.slice(0, 10)];
+    const minStart = startSources.reduce((a, b) => (a < b ? a : b));
+    const maxEnd = endSources.reduce((a, b) => (a > b ? a : b));
+    const from = new Date(`${minStart}T00:00:00Z`);
+    const to = new Date(`${maxEnd}T00:00:00Z`);
     from.setUTCDate(from.getUTCDate() - 7);
     to.setUTCDate(to.getUTCDate() + 7);
     return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
-  }, [project.plannedStartAt, project.plannedEndAt]);
+  }, [project.plannedStartAt, project.plannedEndAt, stages]);
 
   const [range, setRange] = useState<TimelineRange>(baseRange);
+
+  // stages 变化（如磁吸联动延后）导致 baseRange 扩展时，自动扩展可视窗口
+  useEffect(() => {
+    setRange(baseRange);
+  }, [baseRange]);
 
   const days = rangeDays(range);
   const chartW = days * pxPerDay;
 
   useKeyboardPan(true, range, setRange);
 
-  /* ------------------------------ 拖拽改期编排 ------------------------------ */
+  /* ------------------------------ 拖拽改期编排（含磁吸联动） ------------------------------ */
   const drag = useDragReschedule();
-  const [pending, setPending] = useState<PendingReschedule | null>(null);
+  const [batchPending, setBatchPending] = useState<BatchReschedule | null>(null);
 
   // StageBar 手柄 pointerdown 后挂窗级监听；up 时进入弹窗闸门（不直接落库）
   const beginEdgeDrag = useCallback(
@@ -108,14 +126,32 @@ export function TimelineView({
         const newStart = dragEdge === 'start' ? shift(dStart, delta) : dStart;
         const newEnd = dragEdge === 'end' ? shift(dEnd, delta) : dEnd;
         if (new Date(newEnd) < new Date(newStart)) return; // 倒置直接忽略（回弹）
-        setPending({
+
+        // 磁吸联动：当前阶段结束日期变化多少天，后续阶段整体顺延多少天
+        const primary: PendingReschedule = {
           stageId,
           stageName: target.name,
           oldStartAt: dStart,
           oldEndAt: dEnd,
           newStartAt: newStart,
           newEndAt: newEnd,
-        });
+        };
+        const deltaEnd = daysBetween(dEnd, newEnd);
+        const sortedStages = [...stages].sort((a, b) => a.orderIndex - b.orderIndex);
+        const followers: PendingReschedule[] =
+          deltaEnd === 0
+            ? []
+            : sortedStages
+                .filter((s) => s.orderIndex > target.orderIndex)
+                .map((s) => ({
+                  stageId: s.id,
+                  stageName: s.name,
+                  oldStartAt: s.startAt.slice(0, 10),
+                  oldEndAt: s.endAt.slice(0, 10),
+                  newStartAt: shift(s.startAt.slice(0, 10), deltaEnd),
+                  newEndAt: shift(s.endAt.slice(0, 10), deltaEnd),
+                }));
+        setBatchPending({ items: [primary, ...followers], primaryIndex: 0 });
       });
     },
     [drag, pxPerDay, stages],
@@ -204,6 +240,14 @@ export function TimelineView({
                   </g>
                 ))}
 
+                {/* 休息日竖向条带（渲染层语义底纹：坐标系仍是自然日线性映射，xOf 用法不变） */}
+                <RestDayBands
+                  range={range}
+                  pxPerDay={pxPerDay}
+                  height={stages.length * (ROW_H + ROW_GAP)}
+                  policy={restPolicy}
+                />
+
                 {/* 今日虚线 */}
                 <TodayLine x={xOf(todayIso, range, pxPerDay)} height={stages.length * (ROW_H + ROW_GAP)} />
 
@@ -230,11 +274,11 @@ export function TimelineView({
         </div>
       </div>
 
-      {/* 延期原因弹窗（硬闸门在弹窗内实现） */}
-      {pending && (
+      {/* 延期原因弹窗（硬闸门在弹窗内实现；v0.5 支持磁吸联动批量改期） */}
+      {batchPending && (
         <RescheduleDialog
-          pending={pending}
-          onClose={() => setPending(null)}
+          batch={batchPending}
+          onClose={() => setBatchPending(null)}
         />
       )}
     </div>
@@ -248,6 +292,12 @@ export function pickActiveStage(stages: Stage[], todayIso: string): string | nul
 
 /** 平移导出（供外部分页按钮类控件复用） */
 export { panRange };
+
+/** ISO 日期之间相差天数（end - start，可负） */
+function daysBetween(startIso: string, endIso: string): number {
+  const ms = new Date(`${endIso}T00:00:00Z`).getTime() - new Date(`${startIso}T00:00:00Z`).getTime();
+  return Math.round(ms / 86400000);
+}
 
 // re-export 供类型引用
 export type { Stage };

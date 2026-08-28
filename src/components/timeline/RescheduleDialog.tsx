@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AlertTriangle, X } from 'lucide-react';
 
-import type { PendingReschedule } from './TimelineView';
+import type { BatchReschedule } from './TimelineView';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useMembersStore } from '../../store/useMembersStore';
 import { createProjectActions } from '../../store/useProjectsStore';
@@ -12,13 +12,13 @@ import { useRepos } from '../../hooks/useRepos';
  * 延期原因弹窗（PRD 硬规则 1）：
  *   delta > 0（截止日后移）→ 原因必填，空则保存按钮 disabled；
  *   delta ≤ 0（提前/平移）→ 原因选填。
- * 确认后经 StageService.reschedule 落库 + 留痕。
+ * v0.5 新增磁吸联动：支持批量改期，统一填写一次原因后逐个落库留痕。
  */
 export function RescheduleDialog({
-  pending,
+  batch,
   onClose,
 }: {
-  pending: PendingReschedule;
+  batch: BatchReschedule;
   onClose(): void;
 }): JSX.Element {
   const repos = useRepos();
@@ -27,14 +27,18 @@ export function RescheduleDialog({
   const operatorName =
     members.find((m) => m.id === currentMemberId)?.name ?? '设计师本人';
 
-  const postponed =
-    new Date(pending.newEndAt).getTime() > new Date(pending.oldEndAt).getTime();
+  const primary = batch.items[batch.primaryIndex];
+  const postponed = useMemo(
+    () => batch.items.some((it) => new Date(it.newEndAt).getTime() > new Date(it.oldEndAt).getTime()),
+    [batch.items],
+  );
+  const shiftedCount = batch.items.length;
 
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // 推进时原因为空 → 保存按钮 disabled（弹回逻辑）
+  // 任一阶段延后且原因为空 → 保存按钮 disabled（弹回逻辑）
   const canSave = !postponed || reason.trim().length > 0;
 
   useEffect(() => {
@@ -49,15 +53,23 @@ export function RescheduleDialog({
     if (!canSave) return;
     setSubmitting(true);
     const actions = createProjectActions(repos);
-    const ok = await actions.rescheduleStage(pending.stageId, {
-      newStartAt: `${pending.newStartAt}T00:00:00Z`,
-      newEndAt: `${pending.newEndAt}T23:59:59Z`,
-      reason: reason.trim() || null,
-      operatorName,
-    });
+    const trimmedReason = reason.trim() || null;
+    let failed = 0;
+    for (const it of batch.items) {
+      const ok = await actions.rescheduleStage(it.stageId, {
+        newStartAt: `${it.newStartAt}T00:00:00Z`,
+        newEndAt: `${it.newEndAt}T23:59:59Z`,
+        reason: trimmedReason,
+        operatorName,
+      });
+      if (!ok) failed++;
+    }
     setSubmitting(false);
-    if (ok) onClose();
-    else setError('保存被拒绝：请填写延期原因后重试。');
+    if (failed === 0) {
+      onClose();
+    } else {
+      setError(`保存被拒绝：${failed} 个阶段改期失败，请检查延期原因后重试。`);
+    }
   };
 
   return (
@@ -71,7 +83,7 @@ export function RescheduleDialog({
         <div className="mb-3 flex items-start justify-between">
           <h3 className="flex items-center gap-2 font-display text-display-md">
             {postponed && <AlertTriangle size={18} className="text-clay" />}
-            改期确认 · {pending.stageName}
+            改期确认{shiftedCount > 1 ? ` · ${primary.stageName} 等 ${shiftedCount} 个阶段` : ` · ${primary.stageName}`}
           </h3>
           <button
             type="button"
@@ -83,23 +95,29 @@ export function RescheduleDialog({
           </button>
         </div>
 
-        <div className="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-          <span className="text-mist">开始</span>
-          <span className="tabular-nums">
-            {pending.oldStartAt} → <b>{pending.newStartAt}</b>
-          </span>
-          <span className="text-mist">截止</span>
-          <span className="tabular-nums">
-            {pending.oldEndAt} →{' '}
-            <b className={postponed ? 'text-clay' : 'text-pine-deep'}>{pending.newEndAt}</b>
-          </span>
+        {/* 批量改期列表（最多显示 5 行，超出滚动） */}
+        <div className="mb-4 max-h-40 overflow-y-auto rounded-md border border-sand bg-cream/50 p-2 text-sm">
+          {batch.items.map((it) => {
+            const isPostponed = new Date(it.newEndAt).getTime() > new Date(it.oldEndAt).getTime();
+            return (
+              <div
+                key={it.stageId}
+                className="grid grid-cols-[1fr_auto] gap-x-3 border-b border-sand/40 py-1.5 last:border-b-0"
+              >
+                <span className="truncate text-ink">{it.stageName}</span>
+                <span className="tabular-nums text-mist">
+                  {it.oldEndAt} → <b className={isPostponed ? 'text-clay' : 'text-pine-deep'}>{it.newEndAt}</b>
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {postponed ? (
           <>
             <label className="block text-sm">
               <span className="mb-1 block font-medium">
-                延期原因 <span className="text-clay">*（截止日后移必填）</span>
+                延期原因 <span className="text-clay">*（任一阶段截止日后移必填）</span>
               </span>
               <textarea
                 value={reason}
@@ -141,7 +159,7 @@ export function RescheduleDialog({
             onClick={() => void submit()}
             className="rounded-md bg-pine px-4 py-1.5 text-sm text-white hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-40"
           >
-            保存并留痕
+            {shiftedCount > 1 ? `保存 ${shiftedCount} 个阶段并留痕` : '保存并留痕'}
           </button>
         </div>
       </div>

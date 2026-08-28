@@ -10,16 +10,20 @@ import { useMembersStore } from '../store/useMembersStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useRepos } from '../hooks/useRepos';
 import { taskAssigneeIds } from '../hooks/useRoleGuard';
-import { Badge } from '../components/common/Badge';
+import { cn } from '../lib/cn';
 import { remainingDays } from '../lib/date';
+import { StatCard } from '../components/project/StatCard';
+import { STAGE_BAR_COLORS } from '../components/timeline/stageColors';
 import type { Project, Stage, Task } from '../core/types/entities';
 
 type FilterMode = 'by-project' | 'by-time';
 
 /**
- * 我的任务（成员视角，PRD 页面 4）：
- *   仅两项过滤维度：按项目 / 按时间；条目行 = 项目名+阶段图标+待办标题+截止天数；
- *   勾选即完成并写指派流水；右上角小字「只显示与我相关的内容」。
+ * 我的任务（v0.4.1 视觉重做，对齐首页玻璃体系）：
+ *   - 顶部统计概览（今天到期 / 已逾期 / 7 天内 / 未完成总数），复用首页 StatCard；
+ *   - 控件改为参考稿形态（圆角12 容器 + 半透明蓝胶囊选中），去掉原生 checkbox；
+ *   - 分组容器与任务行改为玻璃卡片（圆角16 / 12），行首带阶段色条；
+ *   - 容器去掉 max-w-3xl，与首页 1600 宽体系一致。
  */
 export function MyTasksPage(): JSX.Element {
   const repos = useRepos();
@@ -33,28 +37,47 @@ export function MyTasksPage(): JSX.Element {
   const [showDone, setShowDone] = useState(false);
 
   const me = members.find((m) => m.id === currentMemberId) ?? null;
-  // v0.3：参与人包含语义（taskAssigneeIds 回落旧数据 assigneeId）
-  const myTasks = useMemo(
-    () =>
-      currentMemberId
-        ? allTasks.filter(
-            (t) => taskAssigneeIds(t).includes(currentMemberId) && (showDone || !t.done),
-          )
-        : [],
-    [allTasks, currentMemberId, showDone],
-  );
-
   const todayIso = new Date().toISOString().slice(0, 10);
   const actions = createTaskActions(repos);
   const operatorName = me?.name ?? '未知';
 
-  const projectOf = (t: Task): Project | undefined =>
-    projects.find((p) => p.id === t.projectId);
+  // 参与人包含语义（taskAssigneeIds 回落旧数据 assigneeId）
+  const allMyTasks = useMemo(
+    () =>
+      currentMemberId
+        ? allTasks.filter((t) => taskAssigneeIds(t).includes(currentMemberId))
+        : [],
+    [allTasks, currentMemberId],
+  );
+  const myTasks = useMemo(
+    () => allMyTasks.filter((t) => showDone || !t.done),
+    [allMyTasks, showDone],
+  );
+
+  const projectOf = (t: Task): Project | undefined => projects.find((p) => p.id === t.projectId);
   const stageOf = (t: Task): Stage | undefined => stages.find((s) => s.id === t.stageId);
 
-  /** 按时间过滤：按截止日升序分组（逾期/今日/本周/以后） */
+  /** 统计概览（只统计未完成，口径与列表一致） */
+  const stats = useMemo(() => {
+    let today = 0;
+    let overdue = 0;
+    let week = 0;
+    let undone = 0;
+    for (const t of allMyTasks) {
+      if (t.done) continue;
+      undone += 1;
+      if (!t.dueDate) continue;
+      const d = remainingDays(t.dueDate.slice(0, 10), todayIso);
+      if (d < 0) overdue += 1;
+      else if (d === 0) today += 1;
+      else if (d <= 7) week += 1;
+    }
+    return { today, overdue, week, undone };
+  }, [allMyTasks, todayIso]);
+
+  /** 按时间过滤：逾期 / 今天 / 7天内 / 更晚 */
   const groupedByTime = useMemo(() => {
-    const groups: Record<string, Task[]> = { '已逾期': [], '今天': [], '7 天内': [], '更晚': [] };
+    const groups: Record<string, Task[]> = { 已逾期: [], 今天: [], '7 天内': [], 更晚: [] };
     for (const t of myTasks) {
       if (!t.dueDate) {
         groups['更晚'].push(t);
@@ -70,80 +93,130 @@ export function MyTasksPage(): JSX.Element {
   }, [myTasks, todayIso]);
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+    <div className="flex flex-col gap-6">
+      {/* 标题 + 控件 */}
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-display-lg">我的任务</h1>
-        <span className="ml-auto text-xs text-mist">只显示与我相关的内容</span>
-        <div className="flex overflow-hidden rounded-md border border-sand">
+        <span className="text-xs text-mist">只显示与我相关的内容</span>
+
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          {/* 视图切换（参考稿形态：圆角12 容器 + 半透明蓝胶囊选中） */}
+          <div
+            role="tablist"
+            aria-label="任务分组方式"
+            className="flex items-center gap-1 rounded-[12px] border border-sand bg-cream/60 p-1"
+          >
+            {(
+              [
+                { key: 'by-project' as const, label: '按项目' },
+                { key: 'by-time' as const, label: '按时间' },
+              ]
+            ).map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                role="tab"
+                aria-selected={filter === o.key}
+                onClick={() => setFilter(o.key)}
+                className={cn(
+                  'rounded-[9px] px-3.5 py-2 text-sm font-medium transition-colors',
+                  filter === o.key ? 'bg-pine-soft text-pine' : 'text-mist hover:bg-sand hover:text-ink',
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 显示已完成（自定义胶囊，替换原生 checkbox） */}
           <button
             type="button"
-            onClick={() => setFilter('by-project')}
-            className={`px-3 py-1 text-xs ${filter === 'by-project' ? 'bg-pine text-white' : 'bg-paper text-mist hover:bg-sand'}`}
+            onClick={() => setShowDone((v) => !v)}
+            aria-pressed={showDone}
+            className={cn(
+              'rounded-full border px-3 py-1.5 text-xs transition-colors',
+              showDone
+                ? 'border-pine bg-pine-soft text-pine'
+                : 'border-sand text-mist hover:bg-sand hover:text-ink',
+            )}
           >
-            按项目
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('by-time')}
-            className={`px-3 py-1 text-xs ${filter === 'by-time' ? 'bg-pine text-white' : 'bg-paper text-mist hover:bg-sand'}`}
-          >
-            按时间
+            {showDone ? '已含已完成' : '显示已完成'}
           </button>
         </div>
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-mist">
-          <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
-          显示已完成
-        </label>
       </div>
 
-      {/* 未选身份引导（成员看不到首页，不再引导回首页添加成员） */}
+      {/* 统计概览 */}
+      <section className="flex flex-col gap-5 sm:flex-row">
+        <StatCard icon="▢" tone="pine" value={stats.today} label="今天到期" trend={null} />
+        <StatCard icon="▲" tone="clay" value={stats.overdue} label="已逾期" trend={null} />
+        <StatCard icon="▣" tone="amber" value={stats.week} label="7 天内" trend={null} />
+        <StatCard icon="✓" tone="sage" value={stats.undone} label="未完成总数" trend={null} />
+      </section>
+
+      {/* 未选身份引导 */}
       {!currentMemberId && (
-        <div className="rounded-md border border-dashed border-sand bg-paper p-8 text-center text-sm leading-6 text-mist">
-          请点击右上角「进入身份」输入你的姓名；
-          <br />
-          若系统还没有管理员，请先让管理员完成首次设置后再进入。
+        <div className="glass-light rounded-[16px] border border-dashed border-sand p-10 text-center">
+          <p className="text-sm leading-6 text-mist">
+            请点击右上角「进入身份」输入你的姓名；
+            <br />
+            若系统还没有管理员，请先让管理员完成首次设置后再进入。
+          </p>
         </div>
       )}
 
       {/* 空态 */}
       {currentMemberId && myTasks.length === 0 && (
-        <div className="rounded-md border border-dashed border-sand bg-paper p-8 text-center text-sm leading-6 text-mist">
-          {me ? `${me.name}，目前没有分配给你的待办 🎉` : '未找到该身份。'}
+        <div className="glass-light rounded-[16px] border border-dashed border-sand p-10 text-center">
+          <p className="font-display text-display-md text-mist">
+            {me ? `${me.name}，目前没有分配给你的待办 🎉` : '未找到该身份。'}
+          </p>
         </div>
       )}
 
       {/* 按项目 */}
-      {currentMemberId && filter === 'by-project' &&
+      {currentMemberId &&
+        filter === 'by-project' &&
         Object.entries(
           myTasks.reduce<Record<string, Task[]>>((acc, t) => {
-            const key = t.projectId;
-            (acc[key] ??= []).push(t);
+            (acc[t.projectId] ??= []).push(t);
             return acc;
           }, {}),
         ).map(([projectId, rows]) => {
           const p = projects.find((x) => x.id === projectId);
+          const overdueCount = rows.filter(
+            (t) => !t.done && t.dueDate && remainingDays(t.dueDate.slice(0, 10), todayIso) < 0,
+          ).length;
           return (
-            <section key={projectId} className="mb-5">
-              <h2 className="mb-2 flex items-center gap-2 font-display text-display-md">
+            <section key={projectId} className="glass-light rounded-[16px] border border-sand p-4">
+              <h2 className="mb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-pine" aria-hidden />
                 {p ? (
-                  // 项目名 → 详情入口：成员可点入受限项目详情（否则成员无任何入口）
                   <Link
                     to={`/project/${p.id}`}
-                    className="transition-colors hover:text-pine"
+                    className="font-display text-display-md transition-colors hover:text-pine"
                   >
                     {p.name}
                   </Link>
                 ) : (
-                  '（未知项目）'
+                  <span className="font-display text-display-md text-mist">（未知项目）</span>
+                )}
+                <span className="rounded-[10px] bg-sand px-2.5 py-0.5 text-[12px] font-medium text-mist">
+                  {rows.length}
+                </span>
+                {overdueCount > 0 && (
+                  <span className="rounded-[10px] bg-clay-soft px-2.5 py-0.5 text-[12px] font-medium text-clay">
+                    逾期 {overdueCount}
+                  </span>
                 )}
               </h2>
-              <ul className="overflow-hidden rounded-md border border-sand bg-paper shadow-soft">
+              <ul className="flex flex-col gap-2">
                 {[...rows]
                   .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
                   .map((t) => (
-                    <TaskRowView
+                    <TaskCard
                       key={t.id}
                       task={t}
+                      project={projectOf(t)}
                       stage={stageOf(t)}
                       todayIso={todayIso}
                       onToggle={() => void actions.toggleDone(t, operatorName)}
@@ -155,22 +228,29 @@ export function MyTasksPage(): JSX.Element {
         })}
 
       {/* 按时间 */}
-      {currentMemberId && filter === 'by-time' &&
+      {currentMemberId &&
+        filter === 'by-time' &&
         groupedByTime.map(([groupLabel, rows]) => (
-          <section key={groupLabel} className="mb-5">
-            <h2 className="mb-2 font-display text-display-md">
-              {groupLabel}
-              {groupLabel === '已逾期' && (
-                <span className="ml-2 align-middle">
-                  <Badge tone="clay">{rows.length} 条</Badge>
-                </span>
-              )}
+          <section key={groupLabel} className="glass-light rounded-[16px] border border-sand p-4">
+            <h2 className="mb-3 flex items-center gap-2">
+              <span
+                className={cn(
+                  'h-2 w-2 rounded-full',
+                  groupLabel === '已逾期' ? 'bg-clay' : groupLabel === '今天' ? 'bg-pine' : 'bg-mist',
+                )}
+                aria-hidden
+              />
+              <span className="font-display text-display-md">{groupLabel}</span>
+              <span className="rounded-[10px] bg-sand px-2.5 py-0.5 text-[12px] font-medium text-mist">
+                {rows.length}
+              </span>
             </h2>
-            <ul className="overflow-hidden rounded-md border border-sand bg-paper shadow-soft">
+            <ul className="flex flex-col gap-2">
               {rows.map((t) => (
-                <TaskRowView
+                <TaskCard
                   key={t.id}
                   task={t}
+                  project={projectOf(t)}
                   stage={stageOf(t)}
                   todayIso={todayIso}
                   onToggle={() => void actions.toggleDone(t, operatorName)}
@@ -183,50 +263,67 @@ export function MyTasksPage(): JSX.Element {
   );
 }
 
-function TaskRowView({
+/** 任务卡片（玻璃小卡 + 行首阶段色条；点击卡片体可跳转所属项目） */
+function TaskCard({
   task,
+  project,
   stage,
   todayIso,
   onToggle,
 }: {
   task: Task;
+  project: Project | undefined;
   stage: Stage | undefined;
   todayIso: string;
   onToggle(): void;
 }): JSX.Element {
   const days = task.dueDate ? remainingDays(task.dueDate.slice(0, 10), todayIso) : null;
   const overdue = days !== null && days < 0;
+  const stageColor = stage ? STAGE_BAR_COLORS[stage.orderIndex] ?? STAGE_BAR_COLORS[9] : STAGE_BAR_COLORS[9];
 
   return (
-    <li className="flex items-center gap-3 border-b border-sand/60 px-4 py-2.5 last:border-b-0">
+    <li className="glass-medium flex items-center gap-3 overflow-hidden rounded-[12px] border border-sand p-3">
+      {/* 行首阶段色条 */}
+      <span
+        className="h-8 w-1 shrink-0 rounded-full"
+        style={{ backgroundColor: stageColor }}
+        aria-hidden
+      />
+
       <button
         type="button"
         onClick={onToggle}
         aria-label={task.done ? '标记未完成' : '标记完成'}
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        className={cn(
+          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
           task.done
             ? 'border-pine bg-pine text-white'
-            : 'border-mist/50 text-transparent hover:border-pine'
-        }`}
+            : 'border-mist/50 text-transparent hover:border-pine',
+        )}
       >
         <Check size={12} />
       </button>
 
-      <span className="min-w-0 flex-1 truncate text-sm">
-        <span className={task.done ? 'text-mist line-through' : ''}>{task.title}</span>
-      </span>
-
-      {stage && (
-        <Badge tone="neutral">
-          {['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'][stage.orderIndex - 1]} {stage.name}
-        </Badge>
-      )}
+      <div className="min-w-0 flex-1">
+        <span className={cn('block truncate text-sm', task.done ? 'text-mist line-through' : 'text-ink')}>
+          {task.title}
+        </span>
+        <span className="mt-0.5 flex items-center gap-2 text-[11px] text-mist">
+          {project && <span className="truncate">{project.name}</span>}
+          {stage && (
+            <span className="shrink-0">
+              {['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'][stage.orderIndex - 1]} {stage.name}
+            </span>
+          )}
+        </span>
+      </div>
 
       {days !== null && (
         <span
-          className={`w-16 shrink-0 text-right text-xs tabular-nums ${
-            overdue ? 'text-clay' : days <= 3 ? 'text-amber-deep' : 'text-mist'
-          }`}
+          className={cn(
+            'shrink-0 text-right text-xs tabular-nums',
+            overdue ? 'text-clay' : days <= 3 ? 'text-amber-deep' : 'text-mist',
+          )}
         >
           {overdue ? `逾期${Math.abs(days)}天` : days === 0 ? '今天到期' : `${days} 天`}
         </span>

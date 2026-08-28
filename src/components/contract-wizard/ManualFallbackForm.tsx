@@ -68,99 +68,106 @@ export function ManualFallbackForm({
   };
 
   return (
-    <div className="rounded-md border border-sand bg-paper p-5 shadow-soft">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-display-md">手动建档</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="glass-strong iridescent-border dialog-pop w-full max-w-lg rounded-2xl p-5 shadow-soft">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-display-md">手动建档</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭手动建档"
+            className="rounded-md p-1 text-mist hover:bg-sand"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">项目名称 *</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="如「XX餐饮·室内设计」"
+              className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">类型</span>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as ProjectType)}
+              className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+            >
+              {Object.entries(PROJECT_TYPE_LABELS).map(([k, label]) => (
+                <option key={k} value={k} className="bg-cream text-ink">
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">地址</span>
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">客户名称</span>
+            <input
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">合同额（元，选填）</span>
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="数字"
+              className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">开始 *</span>
+              <input
+                type="date"
+                value={startAt}
+                onChange={(e) => setStartAt(e.target.value)}
+                className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">竣工 *</span>
+              <input
+                type="date"
+                value={endAt}
+                onChange={(e) => setEndAt(e.target.value)}
+                className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
+              />
+            </label>
+          </div>
+        </div>
+
+        {error && <p className="mt-3 text-sm leading-6 text-clay">{error}</p>}
+
         <button
           type="button"
-          onClick={onClose}
-          aria-label="关闭手动建档"
-          className="rounded-md p-1 text-mist hover:bg-sand"
+          disabled={submitting}
+          onClick={() => void submit()}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-pine px-4 py-2 text-sm text-white hover:bg-pine-deep disabled:opacity-40"
         >
-          <X size={16} />
+          <Check size={15} /> 建档（按九阶段模板切分）
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">项目名称 *</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="如「XX餐饮·室内设计」"
-            className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">类型</span>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as ProjectType)}
-            className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-          >
-            {Object.entries(PROJECT_TYPE_LABELS).map(([k, label]) => (
-              <option key={k} value={k}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">地址</span>
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">客户名称</span>
-          <input
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">合同额（元，选填）</span>
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="数字"
-            className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-          />
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">开始 *</span>
-            <input
-              type="date"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
-              className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">竣工 *</span>
-            <input
-              type="date"
-              value={endAt}
-              onChange={(e) => setEndAt(e.target.value)}
-              className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"
-            />
-          </label>
-        </div>
-      </div>
-
-      {error && <p className="mt-3 text-sm leading-6 text-clay">{error}</p>}
-
-      <button
-        type="button"
-        disabled={submitting}
-        onClick={() => void submit()}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-pine px-4 py-2 text-sm text-white hover:bg-pine-deep disabled:opacity-40"
-      >
-        <Check size={15} /> 建档（按九阶段模板切分）
-      </button>
     </div>
   );
 }

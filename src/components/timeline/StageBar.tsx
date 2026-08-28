@@ -58,6 +58,12 @@ export function StageBar({
   const w = Math.max(pxPerDay, xEnd - xStart);
   const fill = STAGE_BAR_COLORS[stage.orderIndex] ?? '#88A293';
 
+  // 拖拽时显示的新日期（用于气泡提示）
+  const previewDate =
+    draggingDeltaDays !== null && draggingEdge
+      ? shiftIsoDate(draggingEdge === 'start' ? dStart : dEnd, draggingDeltaDays)
+      : null;
+
   // 状态透明度
   const opacity =
     stage.status === StageStatus.Completed ? 0.35 : stage.status === StageStatus.NotStarted ? 0.8 : 1;
@@ -164,6 +170,55 @@ export function StageBar({
           {dStart} → {dEnd}
         </text>
       )}
+
+      {/* 拖拽时日期气泡（跟随边缘，显示精准日期） */}
+      {previewDate && draggingEdge && (
+        <DateBubble
+          x={draggingEdge === 'start' ? xStart : xEnd}
+          y={y - 8}
+          date={previewDate}
+          edge={draggingEdge}
+        />
+      )}
+    </g>
+  );
+}
+
+/** 日期偏移（天，可负） */
+function shiftIsoDate(iso: string, deltaDays: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 拖拽日期气泡：深色小卡片，跟随鼠标所拖边缘 */
+function DateBubble({
+  x,
+  y,
+  date,
+  edge,
+}: {
+  x: number;
+  y: number;
+  date: string;
+  edge: 'start' | 'end';
+}): JSX.Element {
+  const label = edge === 'start' ? `开始 ${date}` : `截止 ${date}`;
+  const width = label.length * 6.5 + 10;
+  const height = 18;
+  const rx = 4;
+  return (
+    <g transform={`translate(${x - width / 2}, ${y - height})`} pointerEvents="none">
+      <rect x={0} y={0} width={width} height={height} rx={rx} fill="rgba(15,23,42,0.92)" />
+      <text
+        x={width / 2}
+        y={12}
+        textAnchor="middle"
+        fontSize={9}
+        fill="#ffffff"
+      >
+        {label}
+      </text>
     </g>
   );
 }

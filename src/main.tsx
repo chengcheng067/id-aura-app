@@ -14,12 +14,14 @@ import { HomeRouteGuard } from './components/layout/HomeRouteGuard';
 import { MyTasksPage } from './pages/MyTasksPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { SchedulePrintPage } from './pages/SchedulePrintPage';
+import { CalendarPrintPage } from './pages/CalendarPrintPage';
 
 /**
  * 应用路由表：
  *   /                          首页·项目列表（HomeRouteGuard：isMember 重定向 /my-tasks）
  *   /project/:id               项目详情·九阶段时间轴主视图
  *   /project/:id/schedule-print 日程表打印视图（v0.3 变更 E；页内 isAdmin 守卫，复用 stores 零新查询）
+ *   /project/:id/calendar-print 月历打印/导出视图（v0.5）
  *   /my-tasks                  我的任务（成员视角）
  */
 export const router = createBrowserRouter([
@@ -30,6 +32,7 @@ export const router = createBrowserRouter([
       { index: true, element: <HomeRouteGuard /> },
       { path: 'project/:id', element: <ProjectDetailPage /> },
       { path: 'project/:id/schedule-print', element: <SchedulePrintPage /> },
+      { path: 'project/:id/calendar-print', element: <CalendarPrintPage /> },
       { path: 'my-tasks', element: <MyTasksPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ] satisfies RouteObject[],

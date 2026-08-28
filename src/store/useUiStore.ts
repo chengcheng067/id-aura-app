@@ -32,7 +32,14 @@ export interface UiState {
   /** 月历筛选条件（状态 + 阶段多选 chip） */
   calendarFilters: CalendarFilters;
 
+  /** 应用栏全局搜索词（按项目名 / 客户名过滤看板，对齐参考稿应用栏搜索框） */
+  searchQuery: string;
+  /** 最近打开的项目（返回首页时该卡片呈现参考稿 §选中态 蓝色光晕） */
+  selectedProjectId: string | null;
+
   openStageDrawer(stageId: string): void;
+  setSearchQuery(query: string): void;
+  setSelectedProjectId(projectId: string | null): void;
   closeStageDrawer(): void;
   openContractWizard(): void;
   closeContractWizard(): void;
@@ -62,6 +69,11 @@ export const useUiStore = create<UiState>((set) => ({
   calendarMonth: currentMonthIso(),
   homeViewMode: 'kanban',
   calendarFilters: { status: new Set(), stage: new Set() },
+
+  searchQuery: '',
+  selectedProjectId: null,
+  setSearchQuery: (query) => set({ searchQuery: query }),
+  setSelectedProjectId: (projectId) => set({ selectedProjectId: projectId }),
 
   openStageDrawer: (stageId) => set({ stageDrawerStageId: stageId }),
   closeStageDrawer: () => set({ stageDrawerStageId: null }),
