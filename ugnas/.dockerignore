@@ -1,0 +1,13 @@
+# 构建上下文忽略项（避免把 node_modules / 测试 / git 塞进镜像）
+node_modules
+dist
+.git
+tests
+qa-scratch
+deliverables
+generated-images
+*.log
+.gitignore
+README.md
+.env*
+ugnas/.docker

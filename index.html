@@ -12,6 +12,11 @@
       content="《ID Plan》— 室内设计项目节点管理系统：把合同变成一张看得懂的阶段时间轴。"
     />
     <title>ID Plan</title>
+    <!-- 运行时配置注入点（Docker / 绿联容器端在启动时覆盖，实现不重构镜像切换数据源）：
+         构建期占位 local；容器内由 /env-config.js 覆盖 window.__APP_ENV__ -->
+    <script>
+      window.__APP_ENV__ = { VITE_DATA_SOURCE: 'local', VITE_API_BASE_URL: '' };
+    </script>
   </head>
   <body>
     <!-- 宋体系衬线标题字体为本地字体栈优先（离线优先原则，不强拉网络字体）；

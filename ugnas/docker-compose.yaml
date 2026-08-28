@@ -1,0 +1,33 @@
+# =====================================================================
+# ID Plan · docker-compose.yaml（UGOS PRO Docker 应用编排）
+# 说明：
+#  - 绿联升舱后，本文件会被 ugcli 放进 rootfs_common/docker-compose.yaml；
+#  - 变量 ${VITE_DATA_SOURCE} / ${VITE_API_BASE_URL} 与 project.yaml 的 parameters key 对应，
+#    由用户在「应用中心 → 应用配置」填写，安装时注入；
+#  - 内置变量 TZ 自动注入（无需声明）。
+# =====================================================================
+services:
+  idplan:
+    build:
+      context: ..
+      dockerfile: ugnas/Dockerfile
+    image: docker.io/chengcheng/idplan:0.1.0
+    container_name: idplan
+    restart: always
+    ports:
+      # 宿主/系统网关转发到容器 80；绿联 project.yaml 的 port 指容器对外监听端口
+      - "28080:80"
+    environment:
+      - UMASK=022
+      - TZ=${TZ:-Asia/Shanghai}
+      # 运行时数据源切换入口（绿联移植接口）
+      - VITE_DATA_SOURCE=${VITE_DATA_SOURCE:-local}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
+    network_mode: bridge
+    # 健康检查：Docker 套件通过容器端口探测判断启动成功
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3

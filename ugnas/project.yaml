@@ -1,0 +1,91 @@
+# =====================================================================
+# ID Plan · UGOS Pro 应用配置（ugcli pack 使用）
+# 使用方式：
+#   1. 在 ugnas/ 下执行 `ugcli create com.chengcheng.idplan` 生成项目骨架，
+#      或用本文件作为参考手写 project.yaml；
+#   2. 将 dist/ 构建产物与 nginx/、scripts/ 依 Dockerfile 方式打入镜像
+#      并导出为 tar，放到 rootfs_<arch>/images/；
+#   3. 本 project.yaml 放项目根目录，`ugcli pack --build 1` 生成 upk。
+# 注意：version 为 x.y.z，构建号通过 --build 追加 → 最终 x.y.z.b。
+# =====================================================================
+spec_version: "2.1"
+app_id: com.chengcheng.idplan
+version: 0.1.0
+support_arch:
+  - amd64
+  - arm64
+
+# 客户端类型：设计工具以桌面为主
+supports:
+  - pc
+
+# Docker 应用开关（绿联 Docker 应用开发方式）——便于后期改用原生应用时切换
+is_docker_app: true
+# 仅 Docker 应用：依赖的 Docker 套件最低版本（按绿联文档，需与 NAS 实际一致）
+depend_docker_version: 1.7.0.0000
+# 最低固件版本（声明白依赖时必填；版本号请联系绿联开发确认）
+depend_fw_version: 1.13.0.0000
+
+# 对外监听端口：系统网关转发到容器 80
+port: 28080
+# 打开方式：inner = 系统桌面内独立窗口；tab = 浏览器新标签页
+open_type: inner
+
+# 应用类别
+tag_types:
+  - utility
+  - devtool
+
+# 应用自定义配置（安装/应用中心可改）：与 docker-compose 的 ${VAR} 对应
+parameters:
+  - key: VITE_DATA_SOURCE
+    type: string
+    required: false
+    changeable: true
+    i18n:
+      en-US:
+        name: Data Source
+        description: local = browser IndexedDB (offline); remote = NAS backend API
+      zh-CN:
+        name: 数据源
+        description: local = 浏览器本地存储（离线）；remote = NAS 后端 API（多端同步）
+  - key: VITE_API_BASE_URL
+    type: string
+    required: false
+    changeable: true
+    i18n:
+      en-US:
+        name: API Base URL
+        description: Required when data source is remote, e.g. http://<nas-ip>:28080/api
+      zh-CN:
+        name: 后端 API 地址
+        description: 仅 remote 数据源必填，如 http://<nas-ip>:28080/api
+
+# 合规与技术支持链接（使用开源代码时必须配置 license + source）
+privacy_policy_link:
+  - https://github.com/chengcheng067
+license_agreement_link:
+  - https://github.com/chengcheng067
+source_code_link:
+  - https://github.com/chengcheng067
+technical_support_link:
+  - https://github.com/chengcheng067
+
+# 多语言展示信息（必须保留 en-US 兜底）
+i18n:
+  en-US:
+    name: ID Plan
+    description: Interior design project stage management timeline
+    author: ChengCheng
+    official: https://github.com/chengcheng067
+    help: https://github.com/chengcheng067
+    publisher: ChengCheng
+    publisher_link: https://github.com/chengcheng067
+  zh-CN:
+    name: ID Plan
+    description: 室内设计项目节点管理系统：把合同变成一张看得懂的阶段时间轴
+    author: 丞丞
+    official: https://github.com/chengcheng067
+    help: https://github.com/chengcheng067
+    publisher: 丞丞
+    publisher_link: https://github.com/chengcheng067
