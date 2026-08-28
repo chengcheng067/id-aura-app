@@ -104,8 +104,10 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabel}
-      className={`fixed inset-0 z-[70] ${
-        placement === 'right' ? 'bg-ink/20' : 'bg-[rgba(15,23,42,0.45)] backdrop-blur-[6px]'
+      // z-index 分层：居中弹窗(center)=z-[70] 最高可盖一切；右侧抽屉(right)=z-[60] 属二级浮层，
+      // 让其内部冒出的更浅层浮层（如指派弹层 z-[65]）能盖在抽屉之上。抽屉自身不参与 center 的顶层竞争。
+      className={`fixed inset-0 ${
+        placement === 'right' ? 'z-[60] bg-ink/20' : 'z-[70] bg-[rgba(15,23,42,0.45)] backdrop-blur-[6px]'
       }`}
     >
       {/* 点击关闭判定放在锚点面板（e.currentTarget）上而非遮罩：因为面板是 flex 容器且覆盖内容区，

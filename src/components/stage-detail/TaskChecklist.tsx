@@ -182,7 +182,7 @@ export function TaskChecklist({
                     createPortal(
                       <div
                         data-assign-popover
-                        className="bg-paper menuFadeIn fixed z-[60] w-64 rounded-lg border border-sand p-2 shadow-soft"
+                        className="bg-paper menuFadeIn fixed z-[65] w-64 rounded-lg border border-sand p-2 shadow-soft"
                         style={{ top: assignAnchor?.top ?? 0, right: assignAnchor?.right ?? 0 }}
                       >
                         <p className="mb-1.5 px-1 text-xs font-medium text-ink">指派参与人（可多选）</p>
