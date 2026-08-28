@@ -75,21 +75,17 @@ export function TimelineView({
 
   const pxPerDay = ZOOM_PPD[zoom];
 
-  // 可视窗口：以项目计划工期为基准，阶段实际日期超出时再扩展。
-  // 不再左右外扩 7 天——那会在首尾制造无意义空白，用户会误以为数据缺失。
+  // 可视窗口：以阶段实际起止为边界，没有阶段时才回落到项目计划工期。
+  // 不再以计划截止日期为终点——那会在最后阶段之后留下空白，用户会误以为数据缺失。
   const baseRange = useMemo<TimelineRange>(() => {
     const plannedStart = project.plannedStartAt.slice(0, 10);
     const plannedEnd = project.plannedEndAt.slice(0, 10);
-    const stageStart = stages.length > 0
-      ? stages.map((s) => s.startAt.slice(0, 10)).reduce((a, b) => (a < b ? a : b))
-      : plannedStart;
-    const stageEnd = stages.length > 0
-      ? stages.map((s) => s.endAt.slice(0, 10)).reduce((a, b) => (a > b ? a : b))
-      : plannedEnd;
-    return {
-      from: stageStart < plannedStart ? stageStart : plannedStart,
-      to: stageEnd > plannedEnd ? stageEnd : plannedEnd,
-    };
+    if (stages.length === 0) {
+      return { from: plannedStart, to: plannedEnd };
+    }
+    const stageStart = stages.map((s) => s.startAt.slice(0, 10)).reduce((a, b) => (a < b ? a : b));
+    const stageEnd = stages.map((s) => s.endAt.slice(0, 10)).reduce((a, b) => (a > b ? a : b));
+    return { from: stageStart, to: stageEnd };
   }, [project.plannedStartAt, project.plannedEndAt, stages]);
 
   const [range, setRange] = useState<TimelineRange>(baseRange);
