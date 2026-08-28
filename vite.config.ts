@@ -15,6 +15,11 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: 'es2020',
+    // 沙箱环境的安全删除 shim(genie-trash) 会在 emptyOutDir 时 ETIMEDOUT,
+    // 且本文系统持续锁住 dist 内新生成的 hash js 文件(EPERM)。
+    // 因此禁用自动清空,并把产物输出到全新目录 build-dist,规避被锁残留文件。
+    emptyOutDir: false,
+    outDir: 'build-dist',
     // mammoth / pdfjs 体量大且为按需动态加载，放宽分包警告阈值
     chunkSizeWarningLimit: 1600,
   },
