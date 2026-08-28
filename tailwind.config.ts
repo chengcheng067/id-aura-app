@@ -14,12 +14,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        /** surface-base 应用底色（v0.4 灰底 #2a2a2c） */
-        cream: '#2a2a2c',
-        /** surface-raised 卡片/面板底（v0.4 灰底 #353538） */
-        paper: '#353538',
-        /** glass-border / hover-subtle（边框、次级底纹；灰底上自然更柔和） */
-        sand: 'rgba(255,255,255,0.08)',
+        /** surface-base 应用底色（v0.4.1 对比度微调：#2a2a2c → #26262a，压深让前景浮起） */
+        cream: '#26262a',
+        /** surface-raised 卡片/面板底（v0.4.1 对比度微调：#353538 → #3a3a40，提亮拉开层次） */
+        paper: '#3a3a40',
+        /** glass-border / hover-subtle（v0.4.1 对比度微调：0.08 → 0.12，边界更清晰） */
+        sand: 'rgba(255,255,255,0.12)',
         /** text-primary 主文字（v0.4 稍暖白 #f7f7fa） */
         ink: '#f7f7fa',
         /** text-secondary 弱文字（v0.4 灰底次级 #a0a0a8） */
@@ -35,6 +35,17 @@ export default {
           DEFAULT: '#e5b042',
           soft: 'rgba(229,176,66,0.14)',
           deep: '#d1a03c',
+        },
+        /**
+         * 休息日底纹（公司休息制度 · 渲染层专用，T7）：低饱和中性灰，
+         * 沉于 surface-raised(paper #3a3a40) 与 surface-base(cream #26262a) 之间。
+         *   DEFAULT —— 月历休息日格 / 时间轴条带（不透明）
+         *   band    —— 时间轴 SVG 竖向条带（半透明叠加在行底纹之上，不遮挡阶段彩条）
+         * 语义只走 src/lib/workdays.ts 的 isRestDay，此处仅提供颜色。
+         */
+        'rest-day': {
+          DEFAULT: '#31313a',
+          band: 'rgba(255,255,255,0.05)',
         },
         /** semantic-danger 逾期/危险 */
         clay: {

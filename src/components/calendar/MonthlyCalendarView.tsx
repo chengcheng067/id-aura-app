@@ -1,13 +1,16 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
-import type { Member, Project, Stage, Task } from '../../core/types/entities';
+import type { Project, Stage, Task } from '../../core/types/entities';
 import { useUiStore } from '../../store/useUiStore';
 import { useProjectsStore } from '../../store/useProjectsStore';
 import { useMembersStore } from '../../store/useMembersStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useRoleGuard, isRestrictedView, computeRelatedStageIds } from '../../hooks/useRoleGuard';
 import { cn } from '../../lib/cn';
+import { totalDaysInclusive } from '../../lib/date';
+import { isRestDay } from '../../lib/workdays';
 import {
   buildMonthMeta,
   shiftMonth,
@@ -15,22 +18,79 @@ import {
   filterEntries,
   type CalendarEntry,
   type CalendarMonthMeta,
+  type CalendarFilters,
 } from './calendarMath';
-import { MonthGridHeader } from './MonthGridHeader';
-import { ProjectBandRow } from './ProjectBandRow';
 import { CalendarLegend } from './CalendarLegend';
-import { CalendarFilters } from './CalendarFilters';
+import { CalendarFilters as CalendarFilterPanel } from './CalendarFilters';
 
-/** 布局常量（与 MonthGridHeader / ProjectBandRow 共用） */
-const LEFT_W = 240;
-const COL_W = 34;
-const ROW_H = 44;
+/** 星期表头（周一为起点，与系统日历一致） */
+const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'] as const;
+
+const MONTH_NAMES = [
+  '1月', '2月', '3月', '4月', '5月', '6月',
+  '7月', '8月', '9月', '10月', '11月', '12月',
+];
+
+/** 本地时区 ISO（YYYY-MM-DD） */
+function localIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 周一 = 0，周日 = 6 */
+function mondayFirst(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+interface GridDay {
+  date: string; // 'YYYY-MM-DD'
+  day: number; // 公历日 1~31
+  inMonth: boolean; // 是否属于当月
+  isToday: boolean;
+  isSelected: boolean;
+}
+
+/** 生成系统日历风格的 6×7 日期网格（含前后月填充） */
+function buildCalendarGrid(meta: CalendarMonthMeta, selectedDate: string): GridDay[] {
+  const first = new Date(meta.year, meta.month - 1, 1);
+  const startOffset = mondayFirst(first);
+  const start = new Date(meta.year, meta.month - 1, 1 - startOffset);
+
+  const days: GridDay[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const iso = localIso(d);
+    days.push({
+      date: iso,
+      day: d.getDate(),
+      inMonth: d.getMonth() + 1 === meta.month,
+      isToday: iso === meta.todayIso,
+      isSelected: iso === selectedDate,
+    });
+  }
+  return days;
+}
+
+/** 格式化顶部大日期："8月28日，星期五"（无农历时副标题留空） */
+function formatSelectedDate(iso: string): string {
+  const d = new Date(iso);
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  return `${d.getMonth() + 1}月${d.getDate()}日，${weekdays[d.getDay()]}`;
+}
+
+/** 农历占位（未来可接入 lunar-javascript；避免手写农历导致错排） */
+function lunarLabel(): string {
+  return '农历';
+}
 
 type EmptyKind = 'E1' | 'E2' | 'E3' | 'E4' | null;
 
 /**
- * 月历甘特容器（PRD §2 / §3）：月切换 + 图例 + 筛选 + 网格 + 行渲染 + 空状态。
- * 组合级跨项目视图，零侵入既有看板 / 九阶段时间轴。
+ * 月历视图（系统日历网格风格，对齐用户截图图一）：
+ *   顶部大日期头 + 年月切换 + 今天；
+ *   主体 7 列星期表头 + 日期格子；
+ *   每个格子里显示当天覆盖的项目色条（项目进度以颜色块在日期格上延伸）。
+ * 周/日密度切换当前未实现，已移除无效按钮。
  */
 export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.Element {
   const navigate = useNavigate();
@@ -45,18 +105,26 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
   const stages = useProjectsStore((s) => s.stages);
   const tasks = useProjectsStore((s) => s.tasks);
   const members = useMembersStore((s) => s.members);
+  const restPolicy = useSettingsStore((s) => s.restPolicy);
 
   const { role, currentMember } = useRoleGuard();
   const memberView = isRestrictedView(role);
 
   const meta: CalendarMonthMeta = useMemo(() => buildMonthMeta(calendarMonth), [calendarMonth]);
-
   const active = useMemo(() => projects.filter((p) => p.status === 'active'), [projects]);
 
-  // 成员受限视图：仅保留「成员有相关阶段」的项目（R2：成员按相关阶段集合过滤行）
   const currentMemberId = currentMember?.id ?? null;
   const stagesOf = (p: Project): Stage[] => stages.filter((s) => s.projectId === p.id);
   const tasksOf = (p: Project): Task[] => tasks.filter((t) => t.projectId === p.id);
+
+  const [selectedDate, setSelectedDate] = useState(meta.todayIso);
+
+  // 切换月份时，若选中日期不在当月，则重置为当月 1 日
+  useEffect(() => {
+    if (selectedDate < meta.monthStart || selectedDate > meta.monthEnd) {
+      setSelectedDate(meta.monthStart);
+    }
+  }, [meta, selectedDate]);
 
   const baseEntries: CalendarEntry[] = useMemo(() => {
     return active
@@ -70,17 +138,13 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
           tasks: tasksOf(p),
         });
         if (!ids) return true;
-        return p
-          .id
-          ? stagesOf(p).some((s) => ids.has(s.id))
-          : false;
+        return p.id ? stagesOf(p).some((s) => ids.has(s.id)) : false;
       })
       .map((p) => computeCalendarEntry(p, stagesOf(p), meta));
   }, [active, meta, memberView, currentMemberId, stages, tasks]);
 
   const finalEntries = useMemo(() => filterEntries(baseEntries, filters), [baseEntries, filters]);
 
-  // 空状态判定（PRD §3.6，优先级 E3 > E2/E4 > E1）
   const emptyKind: EmptyKind = useMemo(() => {
     if (active.length === 0) return 'E1';
     if (baseEntries.length === 0) return memberView ? 'E4' : 'E2';
@@ -88,7 +152,7 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
     return null;
   }, [active.length, baseEntries.length, finalEntries.length, memberView]);
 
-  // 键盘 ←/→ 整月切换（与旧时间轴方向一致；输入框聚焦时不拦截）
+  // 键盘 ←/→ 切换月份
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const el = document.activeElement as HTMLElement | null;
@@ -105,40 +169,58 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
     return () => window.removeEventListener('keydown', onKey);
   }, [calendarMonth, setCalendarMonth]);
 
-  const thisMonth = ((): string => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  })();
+  const thisMonth = useMemo(() => localIso(new Date()).slice(0, 7), []);
+  const todayIso = meta.todayIso;
+
+  const gridDays = useMemo(
+    () => buildCalendarGrid(meta, selectedDate),
+    [meta, selectedDate],
+  );
+
+  const entriesOnDate = (date: string): CalendarEntry[] =>
+    finalEntries.filter((e) => e.bandStart <= date && e.bandEnd >= date);
 
   const open = (projectId: string): void => navigate(`/project/${projectId}`);
 
+  const goToday = (): void => {
+    setCalendarMonth(thisMonth);
+    setSelectedDate(todayIso);
+  };
+
   return (
-    <div className="space-y-4">
-      {/* 月切换控件 + 密度占位（P2） */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+    <div className="space-y-5">
+      {/* 顶部大日期头（系统日历风格） */}
+      <div className="glass-strong flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-sand p-5">
+        <div>
+          <div className="font-display text-xl text-ink">{formatSelectedDate(selectedDate)}</div>
+          <div className="mt-0.5 text-xs text-mist">{lunarLabel()}</div>
+        </div>
+
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setCalendarMonth(shiftMonth(calendarMonth, -1))}
             aria-label="上个月"
-            className="rounded-md border border-sand bg-paper px-2.5 py-1.5 text-sm text-ink transition-colors hover:bg-sand"
+            className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-sand bg-paper text-lg text-ink transition-colors hover:bg-sand"
           >
             ‹
           </button>
-          <h2 className="min-w-[120px] text-center font-display text-display-md text-ink">{meta.label}</h2>
+          <h2 className="min-w-[120px] text-center font-display text-display-md text-ink">
+            {meta.label}
+          </h2>
           <button
             type="button"
             onClick={() => setCalendarMonth(shiftMonth(calendarMonth, 1))}
             aria-label="下个月"
-            className="rounded-md border border-sand bg-paper px-2.5 py-1.5 text-sm text-ink transition-colors hover:bg-sand"
+            className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-sand bg-paper text-lg text-ink transition-colors hover:bg-sand"
           >
             ›
           </button>
           <button
             type="button"
-            onClick={() => setCalendarMonth(thisMonth)}
+            onClick={goToday}
             className={cn(
-              'rounded-md border px-3 py-1.5 text-sm transition-colors',
+              'rounded-[12px] border px-4 py-2 text-sm transition-colors',
               calendarMonth === thisMonth
                 ? 'border-pine bg-pine-soft text-pine-deep'
                 : 'border-sand bg-paper text-mist hover:bg-sand hover:text-ink',
@@ -147,47 +229,94 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
             今天
           </button>
         </div>
-
-        {/* 密度切换占位（P2：仅预留控件位，不实现缩放） */}
-        <span
-          title="周/日 密度切换（P2 敬请期待）"
-          className="cursor-default select-none rounded-md border border-sand bg-paper px-3 py-1.5 text-xs text-mist"
-        >
-          周/日 ▾
-        </span>
       </div>
 
-      {/* 图例 */}
+      {/* 图例 + 筛选 */}
       <CalendarLegend />
-
-      {/* 筛选 */}
-      <CalendarFilters
-        filters={filters}
+      <CalendarFilterPanel
+        filters={filters as CalendarFilters}
         onToggleStatus={toggleStatus}
         onToggleStage={toggleStage}
         onClear={clearFilters}
       />
 
-      {/* 网格 / 空状态 */}
+      {/* 月历网格 / 空状态 */}
       {emptyKind ? (
         <EmptyState kind={emptyKind} monthLabel={meta.label} onClear={clearFilters} onManual={onManual} />
       ) : (
-        <div className="glass-medium overflow-x-auto rounded-lg border border-sand bg-paper shadow-soft">
-          <div style={{ width: LEFT_W + meta.daysInMonth * COL_W, minWidth: '100%' }}>
-            <MonthGridHeader meta={meta} colWidth={COL_W} leftWidth={LEFT_W} />
-            {finalEntries.map((entry) => (
-              <ProjectBandRow
-                key={entry.project.id}
-                entry={entry}
-                meta={meta}
-                colWidth={COL_W}
-                leftWidth={LEFT_W}
-                rowHeight={ROW_H}
-                isAdmin={!memberView}
-                members={members}
-                onOpen={open}
-              />
+        <div className="glass-medium overflow-hidden rounded-[20px] border border-sand p-4 shadow-soft">
+          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-[12px] border border-sand bg-sand">
+            {/* 星期表头 */}
+            {WEEKDAYS.map((w) => (
+              <div
+                key={w}
+                className="bg-cream py-2.5 text-center text-[12px] font-medium text-mist"
+              >
+                {w}
+              </div>
             ))}
+
+            {/* 日期格子 */}
+            {gridDays.map((day) => {
+              const items = entriesOnDate(day.date);
+              // 休息日底纹按公司制度走（单休只有周日、大小休周六隔周）。
+              // 顺带修存量 bug：原实现 new Date(iso).getDay() 是「UTC 解析 + 本地读取」，
+              // 在 GMT-X 时区会把周末画错一天；isRestDay 内部统一用 dayjs 本地口径。
+              const isRest = isRestDay(day.date, restPolicy);
+              return (
+                <div
+                  key={day.date}
+                  onClick={() => setSelectedDate(day.date)}
+                  className={cn(
+                    'group relative flex min-h-[110px] flex-col gap-1 bg-paper p-2 transition-colors hover:bg-sand/70',
+                    isRest && 'bg-rest-day/70',
+                    day.isSelected && 'ring-1 ring-inset ring-pine',
+                    !day.inMonth && 'opacity-60',
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        'flex h-7 w-7 items-center justify-center rounded-full text-sm',
+                        day.isToday
+                          ? 'bg-pine text-white'
+                          : day.inMonth
+                            ? 'text-ink'
+                            : 'text-mist',
+                      )}
+                    >
+                      {day.day}
+                    </span>
+                    {items.length > 0 && (
+                      <span className="text-[10px] text-mist opacity-0 transition-opacity group-hover:opacity-100">
+                        {items.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+                    {items.slice(0, 3).map((e) => (
+                      <button
+                        key={e.project.id}
+                        type="button"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          open(e.project.id);
+                        }}
+                        className="w-full truncate rounded-[4px] px-1.5 py-0.5 text-left text-[11px] font-medium text-white transition-transform hover:scale-[1.02]"
+                        style={{ backgroundColor: e.color }}
+                        title={`${e.project.name} · ${Math.round(e.percent)}%`}
+                      >
+                        {e.project.name}
+                      </button>
+                    ))}
+                    {items.length > 3 && (
+                      <span className="text-[10px] text-mist">+{items.length - 3} 个项目</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -214,7 +343,7 @@ function EmptyState({
       cta: 'manual',
     },
     E2: {
-      title: `${monthLabel} 暂无进行中的项目`,
+      title: `${monthLabel} 暂无在途项目`,
       desc: '当前月份没有跨月推进的项目，换个时间段看看，或检查项目计划日期。',
     },
     E3: {
@@ -231,7 +360,7 @@ function EmptyState({
   const c = config[kind as Exclude<EmptyKind, null>];
 
   return (
-    <div className="glass-light rounded-lg border border-dashed border-sand p-10 text-center">
+    <div className="glass-light rounded-[16px] border border-dashed border-sand p-10 text-center">
       <p className="font-display text-display-md text-mist">{c.title}</p>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-mist">{c.desc}</p>
       {c.cta === 'clear' && (

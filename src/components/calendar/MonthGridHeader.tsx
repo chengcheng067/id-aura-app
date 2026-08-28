@@ -1,12 +1,14 @@
 import { dayjs } from '../../lib/date';
 import { cn } from '../../lib/cn';
+import { isRestDay } from '../../lib/workdays';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import type { CalendarMonthMeta } from './calendarMath';
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 
 /**
  * 月历日期列头（列=当月日期，28~31）：
- * - 周末列底色微沉（bg-cream 比普通列深一档）
+ * - 休息日列底色微沉（bg-rest-day；原来是「周末」，现在按公司休息制度走）
  * - 每 7 天弱竖向分隔（border-sand/40）
  * - 今日列高亮（bg-pine-soft + 顶部 pine 描边）
  * - 左列 sticky 锁定的表头占位（与行左列同宽）
@@ -21,14 +23,17 @@ export function MonthGridHeader({
   colWidth: number;
   leftWidth: number;
 }): JSX.Element {
+  const restPolicy = useSettingsStore((s) => s.restPolicy);
+
   const cells = Array.from({ length: meta.daysInMonth }, (_, i) => {
     const day = i + 1;
     const dateStr = dayjs(meta.monthStart).add(i, 'day').format('YYYY-MM-DD');
     const weekday = dayjs(dateStr).day(); // 0=Sun..6=Sat
-    const isWeekend = weekday === 0 || weekday === 6;
+    // 休息日判定统一走 workdays.isRestDay：单休只有周日、大小休周六隔周
+    const isRest = isRestDay(dateStr, restPolicy);
     const isToday = meta.todayInMonth && i === meta.todayIdx;
     const isWeekStart = i % 7 === 0; // 每 7 天弱分隔
-    return { day, weekday, isWeekend, isToday, isWeekStart };
+    return { day, weekday, isRest, isToday, isWeekStart };
   });
 
   return (
@@ -49,7 +54,7 @@ export function MonthGridHeader({
             className={cn(
               'flex flex-col items-center justify-center py-1.5 text-[11px] leading-tight',
               c.isWeekStart && 'border-l border-sand/40',
-              c.isWeekend ? 'bg-cream text-mist' : 'text-mist',
+              c.isRest ? 'bg-rest-day text-mist' : 'text-mist',
               c.isToday && 'bg-pine-soft text-pine',
             )}
             style={{ width: colWidth }}

@@ -4,60 +4,127 @@ import { NewProjectMenu } from '../project/NewProjectMenu';
 import { MemberIdentityPicker } from './MemberIdentityPicker';
 import { SaveBackupButton } from './SaveBackupButton';
 import { LoadBackupButton } from './LoadBackupButton';
+import { RestPolicySettingsButton } from '../settings/RestPolicyDialog';
 import { useRoleGuard } from '../../hooks/useRoleGuard';
+import { useUiStore } from '../../store/useUiStore';
+import { cn } from '../../lib/cn';
 
 /**
- * 顶栏：「ID Plan」品牌 + 按角色条件渲染的导航/新建/备份 + 身份入口。
- * v0.3 变更 B/D：
- *   - header 玻璃化（glass-medium，含顶部高光/内辉光，见 global.css）；print:hidden 配合日程表打印视图；
- *   - 品牌位加 glow-aura-weak 弱辉光；
- *   - 「备份」下拉（BackupMenu）拆分为「保存备份 / 加载备份」两个独立按钮（SaveBackupButton / LoadBackupButton）。
- * 权限矩阵 3.5（#2/#3/#4）：
- *   - 「项目」导航、新建项目、备份按钮 仅 admin 可见；
- *   - 「我的任务」全角色可见；
- *   - 成员视角顶栏只有：品牌 + 我的任务 + 身份入口。
+ * 应用栏（严格对齐参考稿 §应用栏）：
+ *   浮起 glass-strong / 圆角 20 / padding 16 卡片（不再是通栏 sticky + border-b）；
+ *   左 = logo（40×40 圆角12，Aura 渐变走 btn-aura，不写裸 hex）+ 品牌名 18/700 + 副标 11 次级；
+ *   中 = 480 宽搜索框（圆角14，真实过滤项目名 / 客户名，非占位）；
+ *   右 = 导航 + 备份 + 视图切换（参考稿 toggle 形态）+ 新建 + 身份入口。
+ * 既有功能（项目/我的任务导航、新建项目、保存/加载备份、身份切换）全部保留，仅重排为参考稿形态。
  */
 export function TopBar(): JSX.Element {
   const location = useLocation();
   const { isAdmin } = useRoleGuard();
+  const homeViewMode = useUiStore((s) => s.homeViewMode);
+  const setHomeViewMode = useUiStore((s) => s.setHomeViewMode);
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+
+  const onHome = location.pathname === '/';
+  const onProjectPage = onHome || location.pathname.startsWith('/project');
+
+  const navClass = (active: boolean): string =>
+    cn(
+      'rounded-[8px] px-3 py-1.5 text-sm transition-colors hover:bg-sand',
+      active ? 'text-pine' : 'text-mist',
+    );
 
   return (
-    <header className="glass-medium sticky top-0 z-40 border-b border-sand print:hidden">
-      <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center gap-6 px-6">
-        <Link to="/" className="glow-aura-weak flex items-baseline gap-2">
-          <span className="font-display text-display-md tracking-wide">ID Plan</span>
-          <span className="hidden text-xs text-mist sm:inline">节点管理</span>
-        </Link>
-
-        <nav className="ml-auto flex items-center gap-1 text-sm">
-          {isAdmin && (
-            <Link
-              to="/"
-              className={`rounded-md px-3 py-1.5 transition-colors hover:bg-sand ${
-                location.pathname === '/' ? 'text-pine' : 'text-mist'
-              }`}
+    <header className="relative z-40 print:hidden">
+      <div className="mx-auto w-full max-w-[1600px] px-8 pt-6">
+        <div className="glass-strong flex items-center justify-between gap-6 rounded-[20px] border border-sand p-4">
+          {/* 左：logo + 品牌 */}
+          <Link to="/" className="flex shrink-0 items-center gap-3">
+            <span
+              className="btn-aura flex h-10 w-10 items-center justify-center rounded-[12px]"
+              aria-hidden
             >
-              项目
-            </Link>
-          )}
-          <Link
-            to="/my-tasks"
-            className={`rounded-md px-3 py-1.5 transition-colors hover:bg-sand ${
-              location.pathname === '/my-tasks' ? 'text-pine' : 'text-mist'
-            }`}
-          >
-            我的任务
+              <span className="text-[16px] text-ink">▦</span>
+            </span>
+            <span className="flex flex-col">
+              <span className="font-display text-lg font-bold leading-6 text-ink">ID Plan</span>
+              <span className="text-xs leading-[14px] text-mist">室内设计项目管理</span>
+            </span>
           </Link>
-        </nav>
 
-        {isAdmin && <NewProjectMenu />}
+          {/* 中：搜索框（真实过滤，桌面端 480 宽） */}
+          <div className="hidden min-w-0 flex-1 justify-center lg:flex">
+            <div className="flex w-[480px] max-w-full items-center gap-2.5 rounded-[14px] border border-sand bg-cream/60 p-3">
+              <span className="text-sm text-mist" aria-hidden>
+                ⌕
+              </span>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索项目、任务或客户…"
+                aria-label="搜索项目、任务或客户"
+                className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-mist"
+              />
+              <span className="rounded-[8px] border border-sand px-2 py-1 text-xs text-mist">⌘K</span>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <SaveBackupButton />
-          <LoadBackupButton />
+          {/* 右：导航 + 备份 + 视图切换 + 新建 + 身份 */}
+          <div className="flex shrink-0 items-center gap-3">
+            {isAdmin && (
+              <Link to="/" className={navClass(location.pathname === '/')}>
+                项目
+              </Link>
+            )}
+            <Link to="/my-tasks" className={navClass(location.pathname === '/my-tasks')}>
+              我的任务
+            </Link>
+
+            {isAdmin && (
+              <div className="flex items-center gap-1">
+                <SaveBackupButton />
+                <LoadBackupButton />
+                <RestPolicySettingsButton />
+              </div>
+            )}
+
+            {/* 视图切换（仅首页）：参考稿形态 = 圆角12 容器内 padding4，选中项 圆角9 半透明蓝底蓝字 */}
+            {onHome && (
+              <div
+                role="tablist"
+                aria-label="首页视图切换"
+                className="flex items-center gap-1 rounded-[12px] border border-sand bg-cream/60 p-1"
+              >
+                {(
+                  [
+                    { key: 'kanban' as const, label: '看板', icon: '▤' },
+                    { key: 'calendar' as const, label: '月历', icon: '▥' },
+                  ]
+                ).map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={homeViewMode === o.key}
+                    onClick={() => setHomeViewMode(o.key)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-[9px] px-3.5 py-2 text-sm font-medium transition-colors',
+                      homeViewMode === o.key
+                        ? 'bg-pine-soft text-pine'
+                        : 'text-mist hover:bg-sand hover:text-ink',
+                    )}
+                  >
+                    <span aria-hidden>{o.icon}</span>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {isAdmin && onProjectPage && <NewProjectMenu />}
+            <MemberIdentityPicker />
+          </div>
         </div>
-
-        <MemberIdentityPicker />
       </div>
     </header>
   );
