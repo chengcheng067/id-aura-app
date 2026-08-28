@@ -8,6 +8,7 @@ import {
   MemberRoleKind,
   ProjectStatus,
   ProjectType,
+  RestPolicyKind,
   StageLogType,
   StageStatus,
 } from './enums';
@@ -140,3 +141,27 @@ export interface Setting {
   valueJson: string;
   updatedAt: string;
 }
+
+/**
+ * 公司休息制度配置（settings 表 key='restPolicy'）。
+ * 决定全系统排期的工作日口径——切分、改期、磁吸一律经由 src/lib/workdays.ts 消费。
+ */
+export interface RestPolicyConfig {
+  kind: RestPolicyKind;
+  /**
+   * 大小休锚点周，格式 'YYYY-Www'（ISO 周，如 '2026-W35'）。
+   * 仅 BigSmallWeek 有意义：该周为大休周（周六休息），其后逐周交替。
+   * 双休/单休为 null。
+   */
+  anchorWeek: string | null;
+  /** 法定节假日预留扩展点（MVP 不接数据）：命中即休息，优先级低于 extraWorkdays */
+  extraHolidays?: string[];
+  /** 调休上班日预留扩展点（MVP 不接数据）：命中即上班，优先级最高 */
+  extraWorkdays?: string[];
+}
+
+/** 出厂默认：双休（与改造前的 businessdays.ts 口径完全一致） */
+export const DEFAULT_REST_POLICY: RestPolicyConfig = {
+  kind: RestPolicyKind.DoubleOff,
+  anchorWeek: null,
+};

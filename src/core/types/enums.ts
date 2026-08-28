@@ -34,13 +34,24 @@ export enum Confidence {
   Low = 'low',
 }
 
-/** 项目类型（PRD F2 五类） */
+/** 项目类型（PRD F2 五类 → v0.5 扩展为建筑设计全行业） */
 export enum ProjectType {
+  // 商业空间
   Dining = 'dining',
   TeaSpace = 'tea_space',
   Bookstore = 'bookstore',
   Homestay = 'homestay',
   Retail = 'retail',
+  // 设计专业
+  InteriorDesign = 'interior_design',
+  LandscapeDesign = 'landscape_design',
+  ArchitectureDesign = 'architecture_design',
+  ExhibitionDesign = 'exhibition_design',
+  // 住宅/办公/其他
+  Residential = 'residential',
+  Office = 'office',
+  MixedUse = 'mixed_use',
+  Other = 'other',
 }
 
 /** 项目类型展示名映射（唯一 UI 文案源） */
@@ -50,7 +61,39 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   [ProjectType.Bookstore]: '书店',
   [ProjectType.Homestay]: '民宿',
   [ProjectType.Retail]: '零售',
+  [ProjectType.InteriorDesign]: '室内设计',
+  [ProjectType.LandscapeDesign]: '景观设计',
+  [ProjectType.ArchitectureDesign]: '建筑设计',
+  [ProjectType.ExhibitionDesign]: '展陈设计',
+  [ProjectType.Residential]: '住宅',
+  [ProjectType.Office]: '办公',
+  [ProjectType.MixedUse]: '商业综合体',
+  [ProjectType.Other]: '其他',
 };
+
+/** 公司休息制度（决定排期的工作日口径） */
+export enum RestPolicyKind {
+  /** 双休：周六 + 周日休息 */
+  DoubleOff = 'double_off',
+  /** 单休：仅周日休息 */
+  SingleOff = 'single_off',
+  /** 大小休：周日固定休息，周六按周交替（大休周休息、小休周上班） */
+  BigSmallWeek = 'big_small_week',
+}
+
+/** 休息制度展示名映射（唯一 UI 文案源，铁律 7） */
+export const REST_POLICY_LABELS: Record<RestPolicyKind, string> = {
+  [RestPolicyKind.DoubleOff]: '双休',
+  [RestPolicyKind.SingleOff]: '单休',
+  [RestPolicyKind.BigSmallWeek]: '大小休',
+};
+
+/** 全部休息制度集合（遍历渲染/校验用） */
+export const ALL_REST_POLICIES: readonly RestPolicyKind[] = [
+  RestPolicyKind.DoubleOff,
+  RestPolicyKind.SingleOff,
+  RestPolicyKind.BigSmallWeek,
+];
 
 /** 成员角色（无密码信任模型）：admin=设计师本人（系统所有者），member=被指派的执行者 */
 export enum MemberRoleKind {

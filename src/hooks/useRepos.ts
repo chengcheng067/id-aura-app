@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 
 import type { IRepositoryBundle } from '../core/repositories/interfaces';
-import { MemberRoleKind } from '../core/types/enums';
+import { ALL_REST_POLICIES, MemberRoleKind, RestPolicyKind } from '../core/types/enums';
+import { DEFAULT_REST_POLICY } from '../core/types/entities';
+import type { RestPolicyConfig } from '../core/types/entities';
 import { useRepoContext } from '../di/repository.provider';
 import { useProjectsStore } from '../store/useProjectsStore';
 import { useMembersStore } from '../store/useMembersStore';
@@ -31,6 +33,7 @@ export async function bootstrapAllStores(repos: IRepositoryBundle): Promise<void
     readCurrentMemberFromSettings(settings) ??
     localStorage.getItem('changxia.currentMemberId') ??
     null;
+  const restPolicy = readRestPolicyFromSettings(settings);
 
   // LOW-2 迁移：旧成员行 roleKind 归一（undefined→member；当前用户且系统无 admin 时恢复 admin）
   const memberList = normalizeLegacyMemberRoles(members, currentMemberId);
@@ -48,6 +51,8 @@ export async function bootstrapAllStores(repos: IRepositoryBundle): Promise<void
 
   useProjectsStore.getState().replaceAll({ projects, stages, tasks });
   useMembersStore.getState().setAll(memberList);
+  // 先注入休息制度再置 hydrated，保证消费方看到 hydrated=true 时口径已就绪
+  useSettingsStore.getState().setRestPolicy(restPolicy);
   useSettingsStore.getState().hydrate(currentMemberId);
 }
 
@@ -57,6 +62,41 @@ async function loadAllStages(
   const projects = await repos.projects.list({ status: 'all' });
   const chunks = await Promise.all(projects.map((p) => repos.stages.listByProject(p.id)));
   return chunks.flat();
+}
+
+/**
+ * 读取休息制度（settings 表 key='restPolicy'）。
+ * 缺失、JSON 损坏、形状不符一律静默回落 DEFAULT_REST_POLICY——制度读不出来不该拦住首屏。
+ */
+function readRestPolicyFromSettings(
+  rows: Array<{ key: string; valueJson: string }>,
+): RestPolicyConfig {
+  for (const row of rows) {
+    if (row.key !== 'restPolicy') continue;
+    try {
+      return normalizeRestPolicy(JSON.parse(row.valueJson));
+    } catch {
+      return DEFAULT_REST_POLICY;
+    }
+  }
+  return DEFAULT_REST_POLICY;
+}
+
+/** 把任意解析结果收敛成合法 RestPolicyConfig；无法识别时回落默认值 */
+function normalizeRestPolicy(raw: unknown): RestPolicyConfig {
+  if (typeof raw !== 'object' || raw === null) return DEFAULT_REST_POLICY;
+  const { kind, anchorWeek, extraHolidays, extraWorkdays } = raw as Record<string, unknown>;
+  if (!ALL_REST_POLICIES.includes(kind as RestPolicyKind)) return DEFAULT_REST_POLICY;
+  return {
+    kind: kind as RestPolicyKind,
+    anchorWeek: typeof anchorWeek === 'string' ? anchorWeek : null,
+    extraHolidays: Array.isArray(extraHolidays)
+      ? extraHolidays.filter((d): d is string => typeof d === 'string')
+      : undefined,
+    extraWorkdays: Array.isArray(extraWorkdays)
+      ? extraWorkdays.filter((d): d is string => typeof d === 'string')
+      : undefined,
+  };
 }
 
 function readCurrentMemberFromSettings(

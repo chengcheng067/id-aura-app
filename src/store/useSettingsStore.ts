@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 
+import { DEFAULT_REST_POLICY } from '../core/types/entities';
+import type { RestPolicyConfig } from '../core/types/entities';
+
 /**
  * 本机设置与身份。
  * currentMemberId = 「我的任务」身份（MVP 无账号体系，本机选择 + localStorage 持久化；
  * Docker 化后升级为登录会话映射，接口形状不变）。
+ *
+ * restPolicy = 公司休息制度（决定全系统排期的工作日口径）。体例同其他字段：
+ * 不落 localStorage，由 bootstrapAllStores 从 settings 表（key='restPolicy'）读入后注入；
+ * 缺失或数据损坏时静默回落 DEFAULT_REST_POLICY。
  *
  * v0.2 增量：身份进入状态机（不持久化，每次启动由 currentMemberId 恢复已进入态）：
  *   closed        未在身份流程中
@@ -26,8 +33,11 @@ export interface SettingsState {
   adminIntent: boolean;
   /** 会话级：无管理员时普通成员已被告知联系管理员，不再自动弹引导 */
   firstRunDismissed: boolean;
+  /** 公司休息制度（出厂默认双休；由 bootstrap 从 settings 表注入，不落 localStorage） */
+  restPolicy: RestPolicyConfig;
 
   hydrate(currentMemberId: string | null): void;
+  setRestPolicy(next: RestPolicyConfig): void;
   setCurrentMember(memberId: string | null): void;
   openIdentityFlow(state: IdentityFlowState, adminIntent?: boolean): void;
   setIdentityFlow(state: IdentityFlowState): void;
@@ -49,6 +59,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   identityFlow: 'closed',
   adminIntent: false,
   firstRunDismissed: false,
+  restPolicy: DEFAULT_REST_POLICY,
+
+  setRestPolicy: (next) => set({ restPolicy: next }),
 
   hydrate: (currentMemberId) =>
     set({
