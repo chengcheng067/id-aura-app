@@ -9,6 +9,7 @@ import {
   MemberRoleKind,
   ProjectStatus,
   ProjectType,
+  ScheduleBasis,
   StageLogType,
   StageStatus,
 } from './enums';
@@ -27,6 +28,21 @@ export interface CreateProjectCmd {
   plannedStartAt: string; // ISO date 'YYYY-MM-DD'
   plannedEndAt: string;
   coverColor: string | null;
+  /**
+   * 建档所选阶段套餐 key（溯源/统计）。不传 → 由 service 按 stageItems 有无推导
+   * （无 stageItems 视为默认 indoor_full 九段）。
+   */
+  stagePresetKey?: string | null;
+  /** 建档时阶段模板库版本；不传 → service 取 getStageLibraryVersion() */
+  stageTemplateVersion?: number;
+  /** 排期基准；不传 → DEFAULT_SCHEDULE_BASIS（自然日，与改造前口径一致） */
+  scheduleBasis?: ScheduleBasis;
+  /**
+   * 本次服务包含的阶段项（顺序即 orderIndex 1..N，1 ≤ N ≤ 12）。
+   * 不传 → previewSplit 回落到全量九段模板（行为与改造前一致）。
+   * 键序/双写口径：Project 侧不冗余存 key 列表，Stage 表是唯一事实源。
+   */
+  stageItems?: StageTemplateItem[];
 }
 
 /** 项目信息编辑命令（不含状态与日期切分，改期走 stage.service） */
@@ -51,8 +67,14 @@ export interface ConfirmedContractPayload {
   signedAt: string | null; // ISO datetime or date
   startAt: string;
   endAt: string;
-  /** 九阶段草案（含可能的人工覆写） */
+  /** 阶段草案的覆写项（含可能的人工覆写），键为 orderIndex */
   stageOverrides: Record<number, StageOverride>;
+  /** 建档所选套餐 key（溯源/统计）；不传 → null（未知套餐） */
+  stagePresetKey?: string | null;
+  /** 建档时阶段模板库版本；不传 → service 取 getStageLibraryVersion() */
+  stageTemplateVersion?: number;
+  /** 排期基准；不传 → DEFAULT_SCHEDULE_BASIS（自然日） */
+  scheduleBasis?: ScheduleBasis;
   createdByManual: boolean;
   sourceFileName: string | null;
   rawTextDigest: string;
@@ -73,6 +95,10 @@ export interface StageOverride {
 /** 切分产出的阶段草稿（确认后才入库） */
 export interface StageDraft {
   orderIndex: number;
+  /** 模板项 key（溯源）；null=老数据兜底。键序与 Stage 实体对齐，可直接写入 Stage 行 */
+  templateKey: string | null;
+  /** 色号 1..9（取色/圆圈序号/阶段筛选）。键序与 Stage 实体对齐 */
+  colorIndex: number;
   name: string;
   ratioPercent: number;
   startAt: string;
@@ -151,7 +177,11 @@ export interface UpdateMemberCmd {
 export interface BackupPackage {
   meta: {
     app: 'changxia';
-    schemaVersion: 1;
+    /**
+     * 1 = 老备份（无 stagePresetKey / templateKey / colorIndex / scheduleBasis）；
+     * 2 = 现行版本。导入侧同时接受 1 与 2，导出恒为 2。
+     */
+    schemaVersion: 1 | 2;
     exportedAt: string;
   };
   data: {

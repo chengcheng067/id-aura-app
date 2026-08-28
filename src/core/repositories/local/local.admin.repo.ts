@@ -10,6 +10,7 @@ import type {
   Task,
 } from '../../types/entities';
 import { ChangxiaError, ChangxiaErrorCode } from '../../types/enums';
+import { BACKUP_SCHEMA_VERSION } from '../../services/backup.service';
 import type { IAdminRepository } from '../interfaces';
 import { ALL_TABLE_NAMES, type AllTableName, type ChangxiaDatabase } from './dexie.database';
 
@@ -35,7 +36,11 @@ export class LocalAdminRepository implements IAdminRepository {
           this.db.settings.toArray() as Promise<Setting[]>,
         ]);
       return {
-        meta: { app: 'changxia', schemaVersion: 1, exportedAt: new Date().toISOString() },
+        meta: {
+          app: 'changxia',
+          schemaVersion: BACKUP_SCHEMA_VERSION,
+          exportedAt: new Date().toISOString(),
+        },
         data: { projects, stages, tasks, members, assignments, logs, contracts, settings },
       };
     } catch (err) {

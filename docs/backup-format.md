@@ -1,4 +1,4 @@
-# 备份包格式规范 v1（backup-format.md）
+# 备份包格式规范 v2（backup-format.md）
 
 > 备份 = 单个 JSON 文件（UTF-8），人可读、diff 友好。导入侧用 zod 全量校验后才落库，
 > 结构不符直接拒绝并提示（不允许半套写入——Dexie 事务保证原子性）。
@@ -9,7 +9,7 @@
 {
   "meta": {
     "app": "changxia",          // 常量，校验必为 changxia
-    "schemaVersion": 1,         // 当前唯一版本
+    "schemaVersion": 2,         // 现行版本；导入侧同时接受 1 与 2
     "exportedAt": "2026-09-01T08:00:00.000Z"
   },
   "data": {
@@ -27,7 +27,7 @@
 
 ## 校验规则（zod schema 与 backup.service.ts 一一对应）
 
-1. `meta.app === 'changxia'`，`meta.schemaVersion === 1`；
+1. `meta.app === 'changxia'`，`meta.schemaVersion ∈ {1, 2}`（导出恒为 2，导入两者都收）；
 2. 八张表必须存在且为数组（允许空数组）；元素逐条按实体 schema 校验；
 3. 所有实体必有 `revision:number ≥0` 与 `updatedAt: ISO string`；
 4. 时间字段一律 ISO string 或 YYYY-MM-DD；禁止 Date 对象序列化产物；
@@ -52,3 +52,32 @@
   - **旧备份（无该字段）导入时自动归一为 `'member'`**（zod `.default('member')`），导入后每行必有显式 `roleKind`，运行时不会 `undefined`；
   - 新备份含 `roleKind: 'admin'` 的成员 roundtrip 保真；
   - `roleKind` 非法值（如 `'super'`）→ 校验拒绝，不落库。
+
+## 字段说明（v2 增量 · 阶段自定义，PRD 11 §4.4）
+
+随「建档时可多选 N 个阶段（1 ≤ N ≤ 12）」引入。相对 v1 **只增字段且全部有默认值**，
+因此 **v1 备份导入 v2 客户端零门槛，v2 备份导入 v1 客户端也不会校验失败**
+（zod 默认 strip 未声明键 → 静默丢失 `templateKey` / `colorIndex` 等新列，属可接受的降级场景）。
+
+| 表 | 新增字段 | 默认值 / 老数据回落 |
+|---|---|---|
+| `projects[]` | `stagePresetKey: string \| null` | `null`（未知套餐） |
+| `projects[]` | `stageTemplateVersion: number` | `0`（未知版本） |
+| `projects[]` | `scheduleBasis: 'calendar' \| 'workday'` | `'calendar'`（自然日，与改造前口径一致） |
+| `stages[]` | `templateKey: string \| null` | 按 `orderIndex` 反查 `indoor_full` 套餐（1..9 一一对应）；越界 → `null` |
+| `stages[]` | `colorIndex: number` | `clamp(orderIndex, 1, 9)` |
+
+`stages[].orderIndex` 上限由 **9 放宽为 99** —— 否则阶段数 >9 的项目备份一导出就再也导不回来。
+阶段数上限 12 由建档链路（`previewSplit` / `ProjectService.assertDraftsValid`）保证，不由备份层兜底。
+
+### 键序铁律（本次增量同样适用，漏一处 roundtrip 就直接失败）
+
+新增字段的插入位置必须在四处一致：**entity 接口 / zod schema / repo insert 行字面量 / 构造行字面量**。
+
+| 实体 | 新增字段 | 插入位置 | 四处落点 |
+|---|---|---|---|
+| Project | `stagePresetKey`、`stageTemplateVersion`、`scheduleBasis` | `coverColor` 之后、`status` 之前 | `core/types/entities.ts`、`backup.service.ts` 的 `projectSchema`、`local.projects.repo.ts` 的 `insert` 行字面量 |
+| Stage | `templateKey`、`colorIndex` | `orderIndex` 之后、`name` 之前 | `core/types/entities.ts`、`backup.service.ts` 的 `stageSchema`、`project.service.ts` 的 `stageRows` 行字面量 |
+
+导入侧 projects / stages 与 members / tasks 一样**落库 zod 归一产物**（`normalizeProjectRow` /
+`normalizeStageRow`），归一函数按 entity 键序重建对象，故 roundtrip 的 `JSON.stringify` 逐表 diff 依然成立。

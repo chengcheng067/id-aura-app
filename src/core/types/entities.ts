@@ -9,6 +9,7 @@ import {
   ProjectStatus,
   ProjectType,
   RestPolicyKind,
+  ScheduleBasis,
   StageLogType,
   StageStatus,
 } from './enums';
@@ -28,16 +29,44 @@ export interface Project {
   plannedEndAt: string;
   /** 卡片封面色 token 名（cream/pine/amber/clay 系），可空 */
   coverColor: string | null;
+  /**
+   * 建档时所选阶段套餐 key（templates/stage-library.json 的 presets[].key）。
+   * 仅作溯源与统计使用——**不冗余存阶段 key 列表**：Stage 表已是「本阶段集合」的
+   * 唯一事实源，Project 侧再存一份必然产生双写不一致。老数据回落 null。
+   */
+  stagePresetKey: string | null;
+  /** 建档时阶段模板库版本（将来模板升级的兼容判定用）；老数据回落 0（未知版本） */
+  stageTemplateVersion: number;
+  /**
+   * 排期基准（自然日 / 工作日），项目级。默认自然日——
+   * 与改造前口径逐字节一致，tests/stage-split.spec.ts 的自然日契约才不受影响。
+   */
+  scheduleBasis: ScheduleBasis;
   status: ProjectStatus;
   revision: number;
   updatedAt: string;
 }
 
-/** 阶段（每项目固定 9 条，orderIndex 1..9） */
+/**
+ * 阶段（每项目 N 条：N = 建档时所选阶段数，1 ≤ N ≤ 12）。
+ * orderIndex 是**项目内排序序号 1..N，连续无空缺**（不再是固定门牌号 1..9）——
+ * stage.service 的 orderIndex+1 取下一段、TimelineView 的 orderIndex> 取后继段、
+ * project.service 的 orderIndex===i+1 校验，全部依赖这个连续性。
+ */
 export interface Stage {
   id: string; // stg_xxx
   projectId: string;
   orderIndex: number;
+  /**
+   * 阶段模板项 key（templates/stage-library.json 的 items[].key）；null=老数据。
+   * 老数据按 orderIndex 反查 indoor_full 套餐对应项（1..9 一一对应），见 stage-fallback.ts。
+   */
+  templateKey: string | null;
+  /**
+   * 色号 1..9：取 STAGE_BAR_COLORS / 圆圈序号 / 阶段筛选器，跨项目可比。
+   * 与 orderIndex 解耦——老数据回落 clamp(orderIndex,1,9)，与改造前口径完全一致。
+   */
+  colorIndex: number;
   name: string;
   /** 设计工作量占比 %（项目级可覆写模板默认值） */
   ratioPercent: number;
@@ -165,3 +194,10 @@ export const DEFAULT_REST_POLICY: RestPolicyConfig = {
   kind: RestPolicyKind.DoubleOff,
   anchorWeek: null,
 };
+
+/**
+ * 出厂默认排期基准：自然日（Calendar）。
+ * 硬约束——默认口径必须与改造前逐字节一致，现有 tests/stage-split.spec.ts 的自然日契约才不受影响。
+ * 用户在建档时可切换为 Workday（项目级，存 Project.scheduleBasis）。
+ */
+export const DEFAULT_SCHEDULE_BASIS: ScheduleBasis = ScheduleBasis.Calendar;

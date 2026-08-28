@@ -10,8 +10,15 @@ import type {
   AssignmentLog,
   StageLog,
 } from '../types/entities';
-import { ChangxiaError, ChangxiaErrorCode } from '../types/enums';
+import { ChangxiaError, ChangxiaErrorCode, ScheduleBasis } from '../types/enums';
 import type { IRepositoryBundle } from '../repositories/interfaces';
+import { normalizeProjectRow, normalizeStageRow } from '../template/stage-fallback';
+
+/** 现行备份 schema 版本（v2 = 含 stagePresetKey / templateKey / colorIndex / scheduleBasis） */
+export const BACKUP_SCHEMA_VERSION = 2;
+
+/** 仍可导入的历史版本（v1 = 老备份，缺阶段自定义字段） */
+const LEGACY_BACKUP_SCHEMA_VERSION = 1;
 
 /* ------------------------------ zod 实体 schema ------------------------------ */
 
@@ -19,37 +26,59 @@ const isoString = z.string().min(1);
 const nullableIso = isoString.nullable();
 const dateLike = z.string().regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/);
 
-const projectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  address: z.string(),
-  clientName: z.string(),
-  contractAmount: z.number().nullable(),
-  signedAt: nullableIso,
-  plannedStartAt: dateLike,
-  plannedEndAt: dateLike,
-  coverColor: z.string().nullable(),
-  status: z.string(),
-  revision: z.number().int().nonnegative(),
-  updatedAt: isoString,
-});
+/**
+ * 项目 schema。三个新增字段用 `.optional()` + `.transform()` 而非裸 optional：
+ * 老备份（v1）无这些字段 → 校验通过并显式补齐默认值（stagePresetKey=null /
+ * stageTemplateVersion=0 / scheduleBasis=自然日），导入后 DB 行必有值，运行时不会 undefined。
+ * 键序铁律：插在 coverColor 之后、status 之前（与 entities.Project / repo insert 三处同步）。
+ */
+const projectSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    type: z.string(),
+    address: z.string(),
+    clientName: z.string(),
+    contractAmount: z.number().nullable(),
+    signedAt: nullableIso,
+    plannedStartAt: dateLike,
+    plannedEndAt: dateLike,
+    coverColor: z.string().nullable(),
+    stagePresetKey: z.string().nullable().optional(),
+    stageTemplateVersion: z.number().int().nonnegative().optional(),
+    scheduleBasis: z.nativeEnum(ScheduleBasis).optional(),
+    status: z.string(),
+    revision: z.number().int().nonnegative(),
+    updatedAt: isoString,
+  })
+  .transform(normalizeProjectRow);
 
-const stageSchema = z.object({
-  id: z.string(),
-  projectId: z.string(),
-  orderIndex: z.number().int().min(1).max(9),
-  name: z.string(),
-  ratioPercent: z.number(),
-  startAt: dateLike,
-  endAt: dateLike,
-  status: z.string(),
-  ownerId: z.string().nullable(),
-  visible: z.boolean(),
-  resourcePath: z.string().nullable(),
-  revision: z.number().int().nonnegative(),
-  updatedAt: isoString,
-});
+/**
+ * 阶段 schema。要点：
+ *   1. orderIndex 上限 9 → 99 —— 否则阶段数 >9 的项目备份一导出就再也导不回来；
+ *   2. templateKey / colorIndex 老备份缺失 → transform 内按 orderIndex 回落
+ *      （templateKey 反查 indoor_full 套餐，colorIndex = clamp(orderIndex,1,9)）。
+ * 键序铁律：两字段插在 orderIndex 之后、name 之前（与 entities.Stage / project.service 同步）。
+ */
+const stageSchema = z
+  .object({
+    id: z.string(),
+    projectId: z.string(),
+    orderIndex: z.number().int().min(1).max(99),
+    templateKey: z.string().nullable().optional(),
+    colorIndex: z.number().int().min(1).max(9).optional(),
+    name: z.string(),
+    ratioPercent: z.number(),
+    startAt: dateLike,
+    endAt: dateLike,
+    status: z.string(),
+    ownerId: z.string().nullable(),
+    visible: z.boolean(),
+    resourcePath: z.string().nullable(),
+    revision: z.number().int().nonnegative(),
+    updatedAt: isoString,
+  })
+  .transform(normalizeStageRow);
 
 const taskSchema = z.object({
   id: z.string(),
@@ -131,7 +160,10 @@ const settingSchema = z.object({
 const backupSchema = z.object({
   meta: z.object({
     app: z.literal('changxia'),
-    schemaVersion: z.literal(1),
+    // 导入侧同时接受 v1（老备份）与 v2（含阶段自定义字段）；缺失时按现行版本归一
+    schemaVersion: z
+      .union([z.literal(LEGACY_BACKUP_SCHEMA_VERSION), z.literal(BACKUP_SCHEMA_VERSION)])
+      .default(BACKUP_SCHEMA_VERSION),
     exportedAt: isoString,
   }),
   data: z.object({
@@ -181,7 +213,11 @@ export class BackupService {
       b.settings.all(),
     ]);
     return {
-      meta: { app: 'changxia', schemaVersion: 1, exportedAt: new Date().toISOString() },
+      meta: {
+        app: 'changxia',
+        schemaVersion: BACKUP_SCHEMA_VERSION,
+        exportedAt: new Date().toISOString(),
+      },
       data: { projects, stages, tasks, members, assignments: [], logs: [], contracts, settings },
     };
   }
@@ -196,16 +232,17 @@ export class BackupService {
         '当前数据源不支持备份导入。',
       );
     }
-    // 2) 落库前组装：
-    //    - members 用 zod 归一产物：roleKind .default('member') 在此补齐旧备份缺失字段
-    //      （若传回原始对象，旧包导入后 Dexie 行缺 roleKind，运行时 undefined），
-    //      且 schema 键序与 repo insert 键序一致（roundtrip 键序不变式）；
-    //    - tasks 用 zod 归一产物（v0.3 新增）：assigneeIds .default([]) 补齐旧备份缺失字段，
-    //      且 schema 键序与 repo insert 键序一致（键序铁律：assigneeIds 插在 assigneeId 后、dueDate 前）；
-    //    - 其余表用原始对象：zod 会按 schema 键序重建对象（id 前置），
-    //      而 DB 行 id/createdAt 尾置，会破坏 roundtrip 的 JSON.stringify 键序 diff。
+    // 2) 落库前组装：一律用 zod 归一产物，保证「老备份缺字段 → 落库后必有显式值」。
+    //    - members：roleKind .default('member') 补齐（v0.2 范式）；
+    //    - tasks：assigneeIds .default([]) 补齐（v0.3 范式，键序 assigneeId 后、dueDate 前）；
+    //    - projects / stages（v2 范式）：stagePresetKey / scheduleBasis / templateKey /
+    //      colorIndex 由 .transform() 补齐并**按 schema 键序重建对象**——
+    //      该键序与 entities 定义、repo insert 字面量三处对齐，故 roundtrip 的
+    //      JSON.stringify 逐表 diff 依然成立（键序铁律）。
     const data = {
       ...pkg.data,
+      projects: normalized.data.projects,
+      stages: normalized.data.stages,
       members: normalized.data.members,
       tasks: normalized.data.tasks,
     };

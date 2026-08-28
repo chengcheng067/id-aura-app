@@ -1,15 +1,19 @@
 /**
- * 九阶段切分算法（架构 §3.3 实现规格，纯函数）：
+ * 阶段切分算法（架构 §3.3 实现规格，纯函数）：
  *   1. totalDays = diff(end,start)+1（含头尾）
- *   2. 按占比得每段理论天数
+ *   2. 按占比得每段理论天数（子集内归一化：ratioPercent / ratioTotal * 100）
  *   3. rounding 残差由【施工图深化】段（最大段）吸收 → Σ段长==totalDays、无缝连续
  *   4. pinned 锚点钉死对应段边界；两侧按剩余占比在「严格有序、不重叠、end>=start」
  *      约束下重切剩余天数
  *   5. 输出 StageDraft[]（status 恒 not_started），确认后才入库
+ *
+ * 阶段集合由 `SplitInput.stageItems` 决定（1 ≤ N ≤ 12，顺序即 orderIndex 1..N）；
+ * **未传时回落到全量九段模板**，输出与「固定 9 阶段」版本逐字段一致（零回归锚点）。
  */
 
-import type { StageDraft, StageOverride } from '../types/dto';
+import type { StageDraft, StageOverride, StageTemplateItem } from '../types/dto';
 import { getTemplateStages } from './nine-stages';
+import { legacyColorIndexOf, legacyTemplateKeyOf } from './stage-fallback';
 import { ChangxiaError, ChangxiaErrorCode, StageStatus } from '../types/enums';
 import { toIsoDate } from '../../lib/date';
 
@@ -18,10 +22,22 @@ export function stageColorIndex(orderIndex: number): number {
   return Math.min(Math.max(orderIndex, 1), 9);
 }
 
+/** 单次项目最少阶段数（0 段会让完成度、当前阶段、时间轴全部无定义） */
+export const MIN_STAGE_COUNT = 1;
+
+/** 单次项目最多阶段数（色板 9 色 + 单项目时间轴可读性 + A4 打印分页，产品已拍板） */
+export const MAX_STAGE_COUNT = 12;
+
 export interface SplitInput {
   startAt: string;
   endAt: string;
   overrides?: Partial<Record<number, StageOverride>>;
+  /**
+   * 本次服务包含的阶段项（顺序即 orderIndex 1..N，N ∈ [MIN_STAGE_COUNT, MAX_STAGE_COUNT]）。
+   * 显式传空数组 / 超过 N 上限 → 抛 Validation。
+   * **未传（undefined）→ 回落到 getTemplateStages() 全量九段**，行为与改造前完全一致。
+   */
+  stageItems?: StageTemplateItem[];
 }
 
 interface SegmentSpan {
@@ -29,7 +45,10 @@ interface SegmentSpan {
   length: number; // 天数（含头尾）
 }
 
-/** 残差吸收段：施工图深化（orderIndex=6，默认模板中最大占比段） */
+/**
+ * 残差吸收段：施工图深化（orderIndex=6，默认九段模板中最大占比段）。
+ * 子集中不存在该段时，下方 `?? 最长段` 兜底自动接管——子集切分无需改这里。
+ */
 export const RESIDUAL_STAGE_INDEX = 6;
 
 /** 第一步：初始化 span 为占比理论天数（至少 1 天），记录未取整残差 */
@@ -53,7 +72,7 @@ function initSpans(totalDays: number, ratios: Array<{ orderIndex: number; ratioP
     if (target.length < 1) {
       throw new ChangxiaError(
         ChangxiaErrorCode.Validation,
-        '总工期过短，无法按九阶段切分（各阶段至少 1 天）。请检查起止日期。',
+        `总工期过短，无法按所选 ${spans.length} 个阶段切分（各阶段至少 1 天）。请检查起止日期。`,
       );
     }
   }
@@ -220,6 +239,52 @@ function applyPins(
   }));
 }
 
+/** 切分用的阶段视图（子集与全量模板的统一内部形状） */
+interface SplitStage {
+  orderIndex: number;
+  name: string;
+  ratioPercent: number;
+  defaultTasks: string[];
+  templateKey: string | null;
+  colorIndex: number;
+}
+
+/**
+ * 阶段集合解析：
+ *   - 传了 stageItems → 按数组顺序重编号为 1..N（项目内必须连续无空缺）；
+ *   - 未传 → 回落全量九段模板（name/ratioPercent/defaultTasks 逐字段不变，零回归锚点）。
+ */
+function resolveSplitStages(stageItems: StageTemplateItem[] | undefined): SplitStage[] {
+  if (stageItems === undefined) {
+    return getTemplateStages().map((s) => ({
+      orderIndex: s.orderIndex,
+      name: s.name,
+      ratioPercent: s.ratioPercent,
+      defaultTasks: s.defaultTasks,
+      // 老数据口径：9 段一一对应 indoor_full 套餐，色号 == orderIndex
+      templateKey: legacyTemplateKeyOf(s.orderIndex),
+      colorIndex: legacyColorIndexOf(s.orderIndex),
+    }));
+  }
+  if (stageItems.length < MIN_STAGE_COUNT) {
+    throw new ChangxiaError(ChangxiaErrorCode.Validation, '请至少选择 1 个阶段。');
+  }
+  if (stageItems.length > MAX_STAGE_COUNT) {
+    throw new ChangxiaError(
+      ChangxiaErrorCode.Validation,
+      `单次项目最多 ${MAX_STAGE_COUNT} 个阶段，当前已选 ${stageItems.length} 个。`,
+    );
+  }
+  return stageItems.map((item, idx) => ({
+    orderIndex: idx + 1,
+    name: item.name,
+    ratioPercent: item.ratioPercent,
+    defaultTasks: item.defaultTasks,
+    templateKey: item.key,
+    colorIndex: stageColorIndex(item.colorIndex),
+  }));
+}
+
 /**
  * 主入口：previewSplit —— 向导第三步展示的就是本函数输出。
  */
@@ -238,11 +303,11 @@ export function previewSplit(input: SplitInput): StageDraft[] {
   }
   const totalDays = Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1;
 
-  const templateStages = getTemplateStages();
+  const templateStages = resolveSplitStages(input.stageItems);
+  // 子集内归一化：ratioPercent / ratioTotal * 100（沿用既有逻辑，删段后无需手调占比）
   const ratios = templateStages.map((s) => ({
     orderIndex: s.orderIndex,
-    ratioPercent:
-      overrides?.[s.orderIndex]?.ratioPercent ?? s.ratioPercent,
+    ratioPercent: overrides?.[s.orderIndex]?.ratioPercent ?? s.ratioPercent,
   }));
   const ratioTotal = ratios.reduce((acc, r) => acc + r.ratioPercent, 0);
   if (ratioTotal <= 0) {
@@ -276,6 +341,9 @@ export function previewSplit(input: SplitInput): StageDraft[] {
     const ov = overrides?.[seg.orderIndex];
     return {
       orderIndex: seg.orderIndex,
+      // 键序铁律：与 Stage 实体 / stageSchema / project.service stageRows 四处一致
+      templateKey: tpl?.templateKey ?? null,
+      colorIndex: tpl?.colorIndex ?? stageColorIndex(seg.orderIndex),
       name: ov?.name ?? tpl?.name ?? `阶段 ${seg.orderIndex}`,
       ratioPercent: ov?.ratioPercent ?? tpl?.ratioPercent ?? 0,
       startAt: addDaysIso(startDate, seg.startOff),

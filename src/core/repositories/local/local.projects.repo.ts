@@ -1,5 +1,5 @@
 import { ChangxiaError, ChangxiaErrorCode, ProjectStatus } from '../../types/enums';
-import type { Project } from '../../types/entities';
+import { DEFAULT_SCHEDULE_BASIS, type Project } from '../../types/entities';
 import type {
   CreateProjectCmd,
   UpdateProjectCmd,
@@ -61,6 +61,11 @@ export class LocalProjectsRepository implements IProjectsRepository {
       plannedStartAt: cmd.plannedStartAt,
       plannedEndAt: cmd.plannedEndAt,
       coverColor: cmd.coverColor ?? null,
+      // 键序铁律：三个新增字段插在 coverColor 之后、status 之前
+      // （entities.Project / backup.service projectSchema / 本处 insert 字面量 三处同步）
+      stagePresetKey: cmd.stagePresetKey ?? null,
+      stageTemplateVersion: cmd.stageTemplateVersion ?? 0,
+      scheduleBasis: cmd.scheduleBasis ?? DEFAULT_SCHEDULE_BASIS,
       status: ProjectStatus.Active,
       revision: 1,
       updatedAt: now,

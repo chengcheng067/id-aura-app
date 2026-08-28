@@ -5,14 +5,19 @@
 
 import { createId } from '../../lib/id';
 import { toIsoDate } from '../../lib/date';
-import { previewSplit } from '../template/split';
+import { MAX_STAGE_COUNT, MIN_STAGE_COUNT, previewSplit } from '../template/split';
+import { getStageLibraryVersion } from '../template/stage-library';
+import {
+  CUSTOM_STAGE_PRESET_KEY,
+  INTERIOR_FULL_PRESET_KEY,
+} from '../template/stage-fallback';
 import type { StageDraft } from '../types/dto';
 import type {
   ConfirmedContractPayload,
   CreateProjectCmd,
 } from '../types/dto';
 import { ChangxiaError, ChangxiaErrorCode, ProjectType, StageLogType, StageStatus } from '../types/enums';
-import type { Project, Stage, Task } from '../types/entities';
+import { DEFAULT_SCHEDULE_BASIS, type Project, type Stage, type Task } from '../types/entities';
 import type { IProjectsRepository } from '../repositories/interfaces';
 import type { LocalProjectsRepository } from '../repositories/local/local.projects.repo';
 
@@ -35,7 +40,7 @@ export class ProjectService {
 
   /**
    * 合同建档主流程：
-   *   contracts.insert(存证) → projects.insert → stages.bulkInsert(9)
+   *   contracts.insert(存证) → projects.insert → stages.bulkInsert(N)
    *   → tasks.bulkInsert(职责清单) → contracts.linkProject
    * 有 tx 则整体包裹；无 tx 时逐条顺序写（remote 模式由服务端受理保证）。
    */
@@ -56,6 +61,10 @@ export class ProjectService {
       plannedStartAt: toIsoDate(confirmed.startAt) ?? confirmed.startAt,
       plannedEndAt: toIsoDate(confirmed.endAt) ?? confirmed.endAt,
       coverColor: null,
+      // 阶段溯源自段（键序铁律：插在 coverColor 之后、status 之前的三处同步之一）
+      stagePresetKey: confirmed.stagePresetKey ?? null,
+      stageTemplateVersion: confirmed.stageTemplateVersion ?? getStageLibraryVersion(),
+      scheduleBasis: confirmed.scheduleBasis ?? DEFAULT_SCHEDULE_BASIS,
     };
 
     const exec = async (): Promise<Project> => {
@@ -76,11 +85,15 @@ export class ProjectService {
       // 2. 项目主体
       const project = await (this.deps.projects as LocalProjectsRepository).insert(projectCmd);
 
-      // 3. 九阶段实例化
+      // 3. 所选阶段实例化（N 段，orderIndex 1..N 连续）
       const stageRows: Stage[] = drafts.map((d) => ({
         id: createId('stg'),
         projectId: project.id,
         orderIndex: d.orderIndex,
+        // 键序铁律：templateKey/colorIndex 插在 orderIndex 之后、name 之前
+        // （与 entities.Stage / backup.service stageSchema 三处同步，漏一处 roundtrip 就挂）
+        templateKey: d.templateKey,
+        colorIndex: d.colorIndex,
         name: d.name,
         ratioPercent: d.ratioPercent,
         startAt: d.startAt,
@@ -149,11 +162,15 @@ export class ProjectService {
     return this.deps.tx ? this.deps.tx.run(exec) : exec();
   }
 
-  /** 手动建档（先建空项目后补录合同的微调诉求）：同样走九阶段切分 */
+  /**
+   * 手动建档（先建空项目后补录合同的微调诉求）：同样走切分。
+   * 不传 stageItems → 回落全量九段模板（行为与改造前完全一致）。
+   */
   public async createManualProject(cmd: CreateProjectCmd): Promise<Project> {
     const drafts = previewSplit({
       startAt: cmd.plannedStartAt,
       endAt: cmd.plannedEndAt,
+      stageItems: cmd.stageItems,
     });
     const payload: ConfirmedContractPayload = {
       projectName: cmd.name,
@@ -165,6 +182,12 @@ export class ProjectService {
       startAt: cmd.plannedStartAt,
       endAt: cmd.plannedEndAt,
       stageOverrides: {},
+      // 未指定阶段集合 → 默认室内·全流程九段；指定了 → 视为自定义组合
+      stagePresetKey:
+        cmd.stagePresetKey ??
+        (cmd.stageItems?.length ? CUSTOM_STAGE_PRESET_KEY : INTERIOR_FULL_PRESET_KEY),
+      stageTemplateVersion: cmd.stageTemplateVersion,
+      scheduleBasis: cmd.scheduleBasis,
       createdByManual: true,
       sourceFileName: null,
       rawTextDigest: digestOf(''),
@@ -173,13 +196,30 @@ export class ProjectService {
     return this.createProjectFromContract(payload, drafts);
   }
 
+  /**
+   * 阶段数由「固定 9」放宽为「所选 N ∈ [1, 12]」；
+   * orderIndex 必须仍是 1..N 连续无空缺——stage.service 的 orderIndex+1 取下一段、
+   * TimelineView 的 orderIndex> 取后继段都依赖这个连续性。
+   */
   private assertDraftsValid(drafts: StageDraft[]): void {
-    if (drafts.length !== 9) {
-      throw new ChangxiaError(ChangxiaErrorCode.Validation, '建档必须包含完整九个阶段草稿。');
+    if (drafts.length < MIN_STAGE_COUNT) {
+      throw new ChangxiaError(
+        ChangxiaErrorCode.Validation,
+        `请至少选择 ${MIN_STAGE_COUNT} 个阶段。`,
+      );
+    }
+    if (drafts.length > MAX_STAGE_COUNT) {
+      throw new ChangxiaError(
+        ChangxiaErrorCode.Validation,
+        `单次项目最多 ${MAX_STAGE_COUNT} 个阶段，当前 ${drafts.length} 个。`,
+      );
     }
     for (let i = 0; i < drafts.length; i += 1) {
       if (drafts[i].orderIndex !== i + 1) {
-        throw new ChangxiaError(ChangxiaErrorCode.Validation, '阶段顺序锁定为 1..9，不可乱序。');
+        throw new ChangxiaError(
+          ChangxiaErrorCode.Validation,
+          `阶段序号必须为 1..${drafts.length} 连续无空缺。`,
+        );
       }
     }
   }

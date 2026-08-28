@@ -95,6 +95,35 @@ export const ALL_REST_POLICIES: readonly RestPolicyKind[] = [
   RestPolicyKind.BigSmallWeek,
 ];
 
+/**
+ * 排期基准（**项目级**属性，与公司级 RestPolicyConfig 正交，切勿合并）：
+ * 决定「工期 N 天」中的「天」按什么口径切分阶段。
+ *   - Calendar：自然日（日历天），默认。合同写 90 天就是 90 个日历天，竣工日不后延。
+ *   - Workday：工作日，按 RestPolicyConfig 跳过休息日。
+ *     同样「90 天」= 90 个工作日，实际日历跨度会拉长约 40%，竣工日后延。
+ *
+ * 默认 Calendar 是硬约束：现有 tests/stage-split.spec.ts 锁死自然日契约，
+ * 默认口径必须与其逐字节一致，否则老项目与既有断言全部受影响。
+ */
+export enum ScheduleBasis {
+  /** 自然日（日历天，默认） */
+  Calendar = 'calendar',
+  /** 工作日（按休息制度跳过休息日） */
+  Workday = 'workday',
+}
+
+/** 排期基准展示名映射（唯一 UI 文案源，铁律 7） */
+export const SCHEDULE_BASIS_LABELS: Record<ScheduleBasis, string> = {
+  [ScheduleBasis.Calendar]: '按自然日',
+  [ScheduleBasis.Workday]: '按工作日',
+};
+
+/** 全部排期基准集合（遍历渲染/校验用） */
+export const ALL_SCHEDULE_BASIS: readonly ScheduleBasis[] = [
+  ScheduleBasis.Calendar,
+  ScheduleBasis.Workday,
+];
+
 /** 成员角色（无密码信任模型）：admin=设计师本人（系统所有者），member=被指派的执行者 */
 export enum MemberRoleKind {
   Admin = 'admin',
