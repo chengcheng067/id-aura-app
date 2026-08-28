@@ -12,11 +12,9 @@ import {
 import type { Stage, Project, Member } from '../../core/types/entities';
 import { pickActiveStageId } from '../../lib/progress';
 import { useUiStore, type TimelineZoom } from '../../store/useUiStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { useKeyboardPan } from '../../hooks/useKeyboardPan';
 import { useDragReschedule } from '../../hooks/useDragReschedule';
 import { MonthScaleHeader } from './MonthScaleHeader';
-import { RestDayBands } from './RestDayBands';
 import { StageRowsColumn } from './StageRowsColumn';
 import { StageBar } from './StageBar';
 import { TodayLine } from './TodayLine';
@@ -71,7 +69,6 @@ export function TimelineView({
   const zoom = useUiStore((s) => s.timelineZoom);
   const setZoom = useUiStore((s) => s.setTimelineZoom);
   const openDrawer = useUiStore((s) => s.openStageDrawer);
-  const restPolicy = useSettingsStore((s) => s.restPolicy);
 
   const pxPerDay = ZOOM_PPD[zoom];
 
@@ -240,14 +237,6 @@ export function TimelineView({
                     />
                   </g>
                 ))}
-
-                {/* 休息日竖向条带（渲染层语义底纹：坐标系仍是自然日线性映射，xOf 用法不变） */}
-                <RestDayBands
-                  range={range}
-                  pxPerDay={pxPerDay}
-                  height={stages.length * (ROW_H + ROW_GAP)}
-                  policy={restPolicy}
-                />
 
                 {/* 今日虚线 */}
                 <TodayLine x={xOf(todayIso, range, pxPerDay)} height={stages.length * (ROW_H + ROW_GAP)} />

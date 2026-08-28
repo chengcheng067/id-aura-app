@@ -112,7 +112,7 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
+      className="fixed inset-0 z-50 bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -121,7 +121,7 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
         role="dialog"
         aria-modal="true"
         aria-label="公司休息制度"
-        className="glass-strong iridescent-border dialog-pop max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl p-5 shadow-soft"
+        className="glass-strong iridescent-border dialog-pop absolute left-1/2 top-1/2 max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-5 shadow-soft"
       >
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
