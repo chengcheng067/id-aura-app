@@ -93,7 +93,9 @@ export function ManualFallbackForm({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="glass-strong iridescent-border dialog-pop max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl p-5 shadow-soft">
+      <div className="glass-strong iridescent-border dialog-pop flex max-h-[92vh] w-full max-w-lg flex-col rounded-2xl shadow-soft">
+        {/* 描边挂在外层固定框；滚动交给内层，避免虹彩描边伪元素随内容断层露线 */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-display-md">手动建档</h3>
           <button
@@ -213,6 +215,7 @@ export function ManualFallbackForm({
         >
           <Check size={15} /> 建档（按所选 {stageItems.length} 个阶段切分）
         </button>
+        </div>
       </div>
     </div>
   );

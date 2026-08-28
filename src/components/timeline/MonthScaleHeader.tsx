@@ -12,12 +12,15 @@ export interface ScaleTick {
 export function MonthScaleHeader({
   ticks,
   pxPerDay,
+  width,
 }: {
   ticks: ScaleTick[];
   pxPerDay: number;
+  /** 表头区总宽度：与画布 contentW 对齐，尾部空出延伸区保持底色（图1右侧不突兀） */
+  width?: number;
 }): JSX.Element {
   return (
-    <div className="flex h-full items-stretch">
+    <div className="flex h-full items-stretch" style={{ width }}>
       {ticks.map((t) => (
         <div
           key={`${t.start}-${t.label}`}

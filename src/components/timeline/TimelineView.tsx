@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   buildHalfMonthTicks,
@@ -78,6 +78,20 @@ export function TimelineView({
   // T5：工作日口径开关（项目级排期基准）；Calendar/缺省走原自然日分支，逐字节不变
   const useWorkday = project.scheduleBasis === ScheduleBasis.Workday;
 
+  // 视口宽度观测：保证画布宽度至少撑满可视区，避免月档(14px/天)下右侧留白（图1）
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [viewportW, setViewportW] = useState(0);
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setViewportW(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // 可视窗口：以阶段实际起止为边界，没有阶段时才回落到项目计划工期。
   // 不再以计划截止日期为终点——那会在最后阶段之后留下空白，用户会误以为数据缺失。
   const baseRange = useMemo<TimelineRange>(() => {
@@ -100,8 +114,27 @@ export function TimelineView({
 
   const days = rangeDays(range);
   const chartW = days * pxPerDay;
+  // 图1：SVG 画布宽度取「内容实际宽」与「可视视口宽-左列」较大者，行底纹/网格铺满右缘不空白
+  const contentW = Math.max(chartW, viewportW - LEFT_COL_W);
 
   useKeyboardPan(true, range, setRange);
+
+  // 图3：滚轮平移。鼠标悬停时间轴即生效：横向滚轮（deltaX）优先，纵向滚轮（deltaY）兜底。
+  // 将像素位移换算成天数（取 ±1 天至少一步），再复用 panRange 平移可视窗口。
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>): void => {
+      const totalDays = rangeDays(range);
+      const deltaPx = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      if (deltaPx === 0) return;
+      // 一个视窗宽对应 totalDays 天；deltaPx 相对视窗宽折算天数
+      const viewDays = totalDays * (deltaPx / Math.max(1, viewportW));
+      let deltaDays = Math.round(Math.abs(viewDays) >= 1 ? viewDays : Math.sign(deltaPx));
+      if (deltaDays === 0) deltaDays = Math.sign(deltaPx);
+      e.preventDefault();
+      setRange(panRange(range, deltaDays));
+    },
+    [range, viewportW, setRange],
+  );
 
   /* ------------------------------ 拖拽改期编排（含磁吸联动） ------------------------------ */
   const drag = useDragReschedule();
@@ -202,9 +235,13 @@ export function TimelineView({
         </div>
       </div>
 
-      <div className="glass-medium overflow-x-auto rounded-lg border border-sand bg-paper shadow-soft">
-        {/* 宽度精确贴合时间轴（左列 + 图表），不拉伸到满屏，避免右侧出现无意义空白 */}
-        <div style={{ width: LEFT_COL_W + chartW }}>
+      <div
+        ref={viewportRef}
+        className="glass-medium overflow-x-auto rounded-lg border border-sand bg-paper shadow-soft"
+        onWheel={handleWheel}
+      >
+        {/* 宽度取「内容实际宽」与「可视视口宽」较大者：画布撑满可视区，避免图1月档下右侧留白 */}
+        <div style={{ width: LEFT_COL_W + contentW }}>
           {/* 表头行：左侧空置 + 刻度尺 */}
           <div className="flex" style={{ height: HEADER_H }}>
             <div
@@ -218,6 +255,7 @@ export function TimelineView({
                   : buildHalfMonthTicks(range.from, range.to).map((t) => ({ ...t }))
               }
               pxPerDay={pxPerDay}
+              width={contentW}
             />
           </div>
 
@@ -232,10 +270,10 @@ export function TimelineView({
               memberView={memberView}
             />
 
-            {/* 右侧 SVG 画布 */}
+            {/* 右侧 SVG 画布：宽度撑满可视区（contentW），行底纹铺满右缘，彩条仍按真实日期 xOf 定位 */}
             <div className="relative" style={{ height: stages.length * (ROW_H + ROW_GAP) }}>
               <svg
-                width={chartW}
+                width={contentW}
                 height={stages.length * (ROW_H + ROW_GAP)}
                 className="block select-none"
                 role="img"
@@ -247,7 +285,7 @@ export function TimelineView({
                     <rect
                       x={0}
                       y={i * (ROW_H + ROW_GAP)}
-                      width={chartW}
+                      width={contentW}
                       height={ROW_H + ROW_GAP}
                       fill={s.id === activeStageId ? ROW_BG_ACTIVE : i % 2 === 0 ? ROW_BG_EVEN : ROW_BG_ODD}
                     />

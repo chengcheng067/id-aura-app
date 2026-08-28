@@ -121,8 +121,10 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
         role="dialog"
         aria-modal="true"
         aria-label="公司休息制度"
-        className="glass-strong iridescent-border dialog-pop absolute left-1/2 top-1/2 max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-5 shadow-soft"
+        className="glass-strong iridescent-border dialog-pop absolute left-1/2 top-1/2 flex max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl shadow-soft"
       >
+        {/* 描边挂在外层固定框；滚动交给内层，避免虹彩描边伪元素随内容断层露线 */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-display-md text-ink">公司休息制度</h2>
@@ -250,6 +252,7 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
               {saving ? '保存中…' : '保存'}
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
