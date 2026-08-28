@@ -192,6 +192,53 @@ export interface NineStagesTemplateFile {
   }>;
 }
 
+/* ------------------------------ 阶段模板库 ----------------------------------- */
+
+/**
+ * 阶段项所属专业领域。
+ * exhibition 为 P1 预留（展陈阶段项尚未随版本发布），当前 items 中暂无该领域数据。
+ */
+export type StageTemplateDomain = 'indoor' | 'landscape' | 'architecture' | 'exhibition';
+
+/**
+ * 看板分桶列，取值与 HomePage 的 ColumnKey 前四键一致（todo 由项目状态派生，不由阶段项声明）。
+ * 室内 9 项的取值与现状 columnOf() 的 orderIndex <=3 / <=6 分桶逐段等价。
+ */
+export type StageKanbanColumn = 'design' | 'deepen' | 'build';
+
+/** 阶段模板项：阶段模板库的最小可选项（templates/stage-library.json 的 items 段） */
+export interface StageTemplateItem {
+  /** 稳定语义键，全局唯一，格式 领域.阶段 */
+  key: string;
+  /** 默认展示名（落库后用户可改名） */
+  name: string;
+  domain: StageTemplateDomain;
+  /** 默认工作量占比，切分时按子集内归一化（见 split.ts previewSplit） */
+  ratioPercent: number;
+  /** 色号 1..9，取 STAGE_BAR_COLORS；与项目内 orderIndex 解耦 */
+  colorIndex: number;
+  kanbanColumn: StageKanbanColumn;
+  defaultResponsibility: string;
+  defaultTasks: string[];
+}
+
+/** 阶段套餐：若干阶段项的有序组合（itemKeys 顺序即默认 orderIndex 顺序） */
+export interface StagePreset {
+  key: string;
+  name: string;
+  domain: StageTemplateDomain;
+  description: string;
+  itemKeys: string[];
+}
+
+/** templates/stage-library.json 的类型化形状 */
+export interface StageTemplateLibraryFile {
+  version: 1;
+  source: string;
+  items: StageTemplateItem[];
+  presets: StagePreset[];
+}
+
 /* ------------------------------ 切分选项 ------------------------------------- */
 
 export interface SplitOptionsInput {

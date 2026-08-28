@@ -1,0 +1,465 @@
+{
+  "version": 1,
+  "source": "阶段模板库：内置阶段项 + 套餐，随版本发布，用户不可编辑。室内 9 项与 templates/nine-stages.default.json 逐项等价，作为零回归锚点。",
+  "items": [
+    {
+      "key": "indoor.proposal",
+      "name": "提案",
+      "domain": "indoor",
+      "ratioPercent": 5,
+      "colorIndex": 1,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "需求沟通与现场踏勘预约；概念意向与风格提案；概算与报价；签订合同",
+      "defaultTasks": [
+        "需求沟通与现场踏勘预约",
+        "概念意向与风格提案",
+        "概算与报价",
+        "签订合同"
+      ]
+    },
+    {
+      "key": "indoor.measure",
+      "name": "测量",
+      "domain": "indoor",
+      "ratioPercent": 4,
+      "colorIndex": 2,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "现场尺寸复测核对；拍摄全景/细节/管线点位照片；记录结构与机电现状；输出测量记录册",
+      "defaultTasks": [
+        "现场尺寸复测核对",
+        "拍摄全景/细节/管线点位照片",
+        "记录结构与机电现状",
+        "输出测量记录册"
+      ]
+    },
+    {
+      "key": "indoor.concept_plan",
+      "name": "平面方案",
+      "domain": "indoor",
+      "ratioPercent": 11,
+      "colorIndex": 3,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "平面布局与动线推敲；功能分区与桌椅排布（餐饮坪效校核）；业主方案汇报与修改确认",
+      "defaultTasks": [
+        "平面布局与动线推敲",
+        "功能分区与桌椅排布（餐饮坪效校核）",
+        "给业主方案汇报",
+        "业主修改意见确认"
+      ]
+    },
+    {
+      "key": "indoor.su_model",
+      "name": "SU 建模",
+      "domain": "indoor",
+      "ratioPercent": 10,
+      "colorIndex": 4,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "SketchUp 空间体块与场景建模；材质初步贴面；立面推敲与造型深化核对",
+      "defaultTasks": [
+        "SketchUp 空间体块建模",
+        "场景与相机视角搭建",
+        "材质初步贴面",
+        "立面推敲与造型深化核对"
+      ]
+    },
+    {
+      "key": "indoor.rendering",
+      "name": "效果图",
+      "domain": "indoor",
+      "ratioPercent": 14,
+      "colorIndex": 5,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "灯光氛围渲染（关键视角出图）；材质色彩终选呈现；业主审美确认与局部调整",
+      "defaultTasks": [
+        "灯光氛围渲染",
+        "关键视角出图",
+        "材质色彩终选呈现",
+        "业主审美确认与局部调整"
+      ]
+    },
+    {
+      "key": "indoor.construction_drawing",
+      "name": "施工图深化",
+      "domain": "indoor",
+      "ratioPercent": 22,
+      "colorIndex": 6,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "平/立/剖全套图纸；水电点位、吊顶、地面及节点大样；出图自审与业主/施工方会审",
+      "defaultTasks": [
+        "平面图全套深化",
+        "立面图绘制",
+        "剖面图绘制",
+        "水电点位图",
+        "吊顶/地面节点大样",
+        "出图自审与会审"
+      ]
+    },
+    {
+      "key": "indoor.material_list",
+      "name": "材料表",
+      "domain": "indoor",
+      "ratioPercent": 10,
+      "colorIndex": 7,
+      "kanbanColumn": "build",
+      "defaultResponsibility": "主材软装选样定版（打烊前必备的样品封样）；供应商比价与下单跟催；输出《材料下单表》",
+      "defaultTasks": [
+        "主材软装选样定版",
+        "样品封样确认",
+        "供应商比价",
+        "下单跟催",
+        "输出《材料下单表》"
+      ]
+    },
+    {
+      "key": "indoor.handover",
+      "name": "交付",
+      "domain": "indoor",
+      "ratioPercent": 19,
+      "colorIndex": 8,
+      "kanbanColumn": "build",
+      "defaultResponsibility": "施工交底与图纸答疑；关键节点巡场把控（水电/瓦木/油漆验收陪同）；竣工验收与整改销项；结算配合",
+      "defaultTasks": [
+        "施工交底与图纸答疑",
+        "水电验收巡场",
+        "瓦木油验收陪同",
+        "竣工验收",
+        "整改销项跟进",
+        "结算配合"
+      ]
+    },
+    {
+      "key": "indoor.photography",
+      "name": "实景",
+      "domain": "indoor",
+      "ratioPercent": 5,
+      "colorIndex": 9,
+      "kanbanColumn": "build",
+      "defaultResponsibility": "完工摄影/回访拍摄安排；软陈摆场收尾；案例复盘归档与《长夏》系列素材入库",
+      "defaultTasks": [
+        "完工摄影安排",
+        "回访拍摄安排",
+        "软陈摆场收尾",
+        "案例复盘归档"
+      ]
+    },
+    {
+      "key": "landscape.survey",
+      "name": "场地踏勘与测绘",
+      "domain": "landscape",
+      "ratioPercent": 6,
+      "colorIndex": 1,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "现场踏勘与地形测绘复核；土壤、水文与既有植被调查；市政接口与红线条件核对；输出《场地踏勘记录》与测绘图",
+      "defaultTasks": [
+        "现场踏勘与场地照片记录",
+        "地形高程与现状测绘复核",
+        "土壤与水文条件调查",
+        "既有植被与保留树木调查",
+        "市政接口与红线条件核对",
+        "输出《场地踏勘记录》与测绘图"
+      ]
+    },
+    {
+      "key": "landscape.concept",
+      "name": "概念方案",
+      "domain": "landscape",
+      "ratioPercent": 14,
+      "colorIndex": 3,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "设计主题与空间意向定位；总平概念草图与功能分区构思；意向图与参考案例汇报；业主确认设计方向",
+      "defaultTasks": [
+        "设计主题与空间意向定位",
+        "总平概念草图与功能分区",
+        "意向图与参考案例整理",
+        "概念方案汇报与方向确认"
+      ]
+    },
+    {
+      "key": "landscape.schematic",
+      "name": "方案深化（总平与竖向）",
+      "domain": "landscape",
+      "ratioPercent": 18,
+      "colorIndex": 4,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "总平面深化与动线组织；竖向设计与场地排水组织推敲；主要节点平面与剖断面；景观小品与构筑物选型；业主方案定稿确认",
+      "defaultTasks": [
+        "总平面深化与动线组织",
+        "竖向设计与场地排水组织",
+        "主要节点平面与剖断面推敲",
+        "景观小品与构筑物选型",
+        "方案成果汇报与定稿确认"
+      ]
+    },
+    {
+      "key": "landscape.planting",
+      "name": "种植设计",
+      "domain": "landscape",
+      "ratioPercent": 12,
+      "colorIndex": 5,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "植物配置主题与季相设计；乔灌草分层配置图；苗木表（品种/规格/数量）编制；种植施工要点交底",
+      "defaultTasks": [
+        "植物配置主题与季相设计",
+        "乔木灌木与地被分层配置",
+        "苗木表编制（品种/规格/数量）",
+        "种植密度与间距复核",
+        "种植施工要点交底"
+      ]
+    },
+    {
+      "key": "landscape.mep_lighting",
+      "name": "水电与照明设计",
+      "domain": "landscape",
+      "ratioPercent": 10,
+      "colorIndex": 6,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "灌溉与给排水点位设计；景观照明回路与灯具选型；强弱电系统图与负荷校核；水电设备清单与工程量统计",
+      "defaultTasks": [
+        "灌溉系统与给排水点位设计",
+        "景观照明回路与灯具选型",
+        "强弱电系统图绘制",
+        "用电负荷与线缆校核",
+        "水电设备清单与工程量统计"
+      ]
+    },
+    {
+      "key": "landscape.construction_drawing",
+      "name": "施工图（硬质与节点大样）",
+      "domain": "landscape",
+      "ratioPercent": 24,
+      "colorIndex": 7,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "铺装/构筑物/水景施工图；节点大样与材料做法表；结构配合与荷载条件核对；出图自审与施工方会审",
+      "defaultTasks": [
+        "铺装排版与放线图",
+        "构筑物与水景施工图",
+        "节点大样与材料做法表",
+        "结构配合与荷载条件核对",
+        "工程量统计与清单编制",
+        "出图自审与施工方会审"
+      ]
+    },
+    {
+      "key": "landscape.site_service",
+      "name": "现场服务与竣工验收",
+      "domain": "landscape",
+      "ratioPercent": 16,
+      "colorIndex": 8,
+      "kanbanColumn": "build",
+      "defaultResponsibility": "施工图交底与现场放线复核；关键节点巡场（地形/硬质/种植/水电）；苗木验收与竣工验收；整改销项与结算配合",
+      "defaultTasks": [
+        "施工图交底与现场放线复核",
+        "地形与硬质施工巡场",
+        "苗木进场验收与种植指导",
+        "水电隐蔽工程验收配合",
+        "竣工验收与整改销项",
+        "结算配合与竣工资料归档"
+      ]
+    },
+    {
+      "key": "architecture.concept",
+      "name": "概念方案",
+      "domain": "architecture",
+      "ratioPercent": 15,
+      "colorIndex": 1,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "用地条件与规划指标解读；体量生成与空间概念推敲；功能分区与流线组织；概念汇报与方向确认",
+      "defaultTasks": [
+        "用地条件与规划指标解读",
+        "体量生成与空间概念推敲",
+        "功能分区与流线组织",
+        "概念意向与参考案例整理",
+        "概念方案汇报与方向确认"
+      ]
+    },
+    {
+      "key": "architecture.schematic",
+      "name": "方案设计",
+      "domain": "architecture",
+      "ratioPercent": 20,
+      "colorIndex": 3,
+      "kanbanColumn": "design",
+      "defaultResponsibility": "总平面与各层平面深化；立面造型与材质方向确定；主要剖面与空间尺度校核；方案成果编制与业主确认",
+      "defaultTasks": [
+        "总平面与各层平面深化",
+        "立面造型与材质方向确定",
+        "主要剖面与空间尺度校核",
+        "场地出入口与停车组织",
+        "方案成果编制与业主确认"
+      ]
+    },
+    {
+      "key": "architecture.development",
+      "name": "初步设计（扩初）",
+      "domain": "architecture",
+      "ratioPercent": 20,
+      "colorIndex": 5,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "结构/机电专业协同与系统选型；构造做法与主要材料定版；防火分区与疏散设计校核；概算工程量与造价复核",
+      "defaultTasks": [
+        "结构选型与柱网协同",
+        "给排水暖通电气系统选型",
+        "构造做法与主要材料定版",
+        "防火分区与疏散设计校核",
+        "概算工程量与造价复核"
+      ]
+    },
+    {
+      "key": "architecture.construction_doc",
+      "name": "施工图设计",
+      "domain": "architecture",
+      "ratioPercent": 25,
+      "colorIndex": 6,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "建/结/水/暖/电全套施工图；节点大样与构造详图；节能与消防专篇编制；出图自审与图审意见回复",
+      "defaultTasks": [
+        "建筑平立剖施工图",
+        "结构施工图配合与核对",
+        "水暖电专业施工图配合",
+        "节点大样与构造详图",
+        "节能与消防设计专篇",
+        "出图自审与图审意见回复"
+      ]
+    },
+    {
+      "key": "architecture.permit_support",
+      "name": "报规报建配合",
+      "domain": "architecture",
+      "ratioPercent": 10,
+      "colorIndex": 7,
+      "kanbanColumn": "deepen",
+      "defaultResponsibility": "规划报审图纸与指标表配合；消防/人防/节能等专项报审资料；主管部门意见回复与图纸调整；审批结果与归档",
+      "defaultTasks": [
+        "规划报审图纸与指标表配合",
+        "消防与人防专项报审资料",
+        "节能与绿建专项资料配合",
+        "主管部门意见回复与图纸调整",
+        "审批结果与资料归档"
+      ]
+    },
+    {
+      "key": "architecture.site_service",
+      "name": "施工配合与竣工验收",
+      "domain": "architecture",
+      "ratioPercent": 10,
+      "colorIndex": 8,
+      "kanbanColumn": "build",
+      "defaultResponsibility": "施工图交底与图纸答疑；基础/主体/隐蔽工程验收巡场；设计变更与技术核定；竣工验收与整改销项",
+      "defaultTasks": [
+        "施工图交底与图纸答疑",
+        "基础与主体阶段验收巡场",
+        "隐蔽工程验收配合",
+        "设计变更与技术核定",
+        "竣工验收与整改销项"
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "key": "indoor_full",
+      "name": "室内·全流程",
+      "domain": "indoor",
+      "description": "从提案到实景落地的完整室内设计服务，与现有九阶段模板逐项一致",
+      "itemKeys": [
+        "indoor.proposal",
+        "indoor.measure",
+        "indoor.concept_plan",
+        "indoor.su_model",
+        "indoor.rendering",
+        "indoor.construction_drawing",
+        "indoor.material_list",
+        "indoor.handover",
+        "indoor.photography"
+      ]
+    },
+    {
+      "key": "indoor_concept",
+      "name": "室内·方案止（含效果图）",
+      "domain": "indoor",
+      "description": "只承接概念到效果图确认，不含施工图与后期落地配合",
+      "itemKeys": [
+        "indoor.proposal",
+        "indoor.measure",
+        "indoor.concept_plan",
+        "indoor.su_model",
+        "indoor.rendering"
+      ]
+    },
+    {
+      "key": "indoor_ff",
+      "name": "室内·软装与陈设",
+      "domain": "indoor",
+      "description": "软装概念、选样下单、摆场与拍摄；复用室内阶段项，建档后可按需改名",
+      "itemKeys": [
+        "indoor.proposal",
+        "indoor.measure",
+        "indoor.concept_plan",
+        "indoor.rendering",
+        "indoor.material_list",
+        "indoor.handover",
+        "indoor.photography"
+      ]
+    },
+    {
+      "key": "indoor_deepen_only",
+      "name": "室内·仅深化（外包承接）",
+      "domain": "indoor",
+      "description": "外部方案已完成，只承接施工图深化与材料表",
+      "itemKeys": [
+        "indoor.construction_drawing",
+        "indoor.material_list"
+      ]
+    },
+    {
+      "key": "landscape_full",
+      "name": "景观·全流程",
+      "domain": "landscape",
+      "description": "从场地踏勘到竣工验收的完整景观设计服务（庭院 / 示范区 / 园区）",
+      "itemKeys": [
+        "landscape.survey",
+        "landscape.concept",
+        "landscape.schematic",
+        "landscape.planting",
+        "landscape.mep_lighting",
+        "landscape.construction_drawing",
+        "landscape.site_service"
+      ]
+    },
+    {
+      "key": "landscape_concept",
+      "name": "景观·方案止（含竖向）",
+      "domain": "landscape",
+      "description": "只承接踏勘、概念方案与方案深化，后续施工图由他方完成",
+      "itemKeys": [
+        "landscape.survey",
+        "landscape.concept",
+        "landscape.schematic"
+      ]
+    },
+    {
+      "key": "architecture_full",
+      "name": "建筑·全流程",
+      "domain": "architecture",
+      "description": "从概念方案到报规配合、施工配合的完整建筑设计服务（自建房 / 小型公建）",
+      "itemKeys": [
+        "architecture.concept",
+        "architecture.schematic",
+        "architecture.development",
+        "architecture.construction_doc",
+        "architecture.permit_support",
+        "architecture.site_service"
+      ]
+    },
+    {
+      "key": "architecture_cd",
+      "name": "建筑·施工图与报规",
+      "domain": "architecture",
+      "description": "方案已定，只承接施工图设计、报规报建配合与施工配合",
+      "itemKeys": [
+        "architecture.construction_doc",
+        "architecture.permit_support",
+        "architecture.site_service"
+      ]
+    }
+  ]
+}
