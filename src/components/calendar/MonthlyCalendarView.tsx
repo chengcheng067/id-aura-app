@@ -16,6 +16,7 @@ import {
   shiftMonth,
   computeCalendarEntry,
   filterEntries,
+  stageSpan,
   type CalendarEntry,
   type CalendarMonthMeta,
   type CalendarFilters,
@@ -128,7 +129,14 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
 
   const baseEntries: CalendarEntry[] = useMemo(() => {
     return active
-      .filter((p) => p.plannedStartAt <= meta.monthEnd && p.plannedEndAt >= meta.monthStart)
+      .filter((p) => {
+        // 月份命中范围（图3修复）：取「阶段实际起止 ∪ 项目计划基线」覆盖当月才渲染，
+        // 否则阶段被拖出计划范围后，那段月历会被裁剪（评审指出的易漏点）。
+        const span = stageSpan(stagesOf(p));
+        const s = span && span.minStart < p.plannedStartAt ? span.minStart : p.plannedStartAt;
+        const e = span && span.maxEnd > p.plannedEndAt ? span.maxEnd : p.plannedEndAt;
+        return s <= meta.monthEnd && e >= meta.monthStart;
+      })
       .filter((p) => {
         if (!memberView) return true;
         const ids = computeRelatedStageIds({

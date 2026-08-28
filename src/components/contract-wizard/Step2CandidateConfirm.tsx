@@ -114,7 +114,6 @@ export function Step2CandidateConfirm({
   const [projectType, setProjectType] = useState<ProjectType>(ProjectType.Dining);
   const [address, setAddress] = useState('');
   const [clientName, setClientName] = useState('');
-  const [amountText, setAmountText] = useState('');
   const [signedDate, setSignedDate] = useState<string>(val(result.signedDate));
   const [startDate, setStartDate] = useState<string>(val(result.startDate));
   // 竣工优先取显式日期锚点，否则用工期换算的兜底值
@@ -179,12 +178,6 @@ export function Step2CandidateConfirm({
         </label>
         <LabeledInput label="地址" value={address} onChange={setAddress} placeholder="街道门牌（选填）" />
         <LabeledInput label="客户名称" value={clientName} onChange={setClientName} placeholder="甲方称呼（选填）" />
-        <LabeledInput
-          label="合同额（元，选填）"
-          value={amountText}
-          onChange={(v) => setAmountText(v.replace(/[^\d.]/g, ''))}
-          placeholder="数字，单位元"
-        />
         <LabeledInput label="合同来源文件名" value={sourceFileName ?? '粘贴文本'} readOnly disabled />
       </div>
 
@@ -221,7 +214,7 @@ export function Step2CandidateConfirm({
               projectType,
               address: address.trim(),
               clientName: clientName.trim(),
-              contractAmount: amountText ? Number(amountText) : null,
+              contractAmount: null, // 合同额字段已从确认表单移除（数据模型保留，兼容老数据）；此处恒传 null
               signedAt: signedDate || null,
               startAt: startDate,
               endAt: endDate,

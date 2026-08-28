@@ -168,15 +168,16 @@ describe('calendarMath.buildMonthMeta / shiftMonth / clampDate', () => {
 describe('calendarMath.computeCalendarEntry（PRD §4.1 / §4.2）', () => {
   const meta = buildMonthMeta('2026-09', '2026-09-15');
 
-  it('进行中：色带起点裁剪到当月、终点=progressDate、颜色=阶段莫兰迪', () => {
+  it('进行中：色带起点=阶段实际首日（早于计划基线则取阶段首）、终点=clamp(今日,阶段首,阶段末)、颜色=阶段莫兰迪', () => {
     const p = makeProject({ plannedStartAt: '2026-09-05', plannedEndAt: '2026-09-30' });
     const e = computeCalendarEntry(p, nineStages('2026-09-15'), meta);
     expect(e.status).toBe('in_progress');
     // today(09-15) 落在阶段3(start 09-10,end 09-13)? 越过 → nextUp=阶段4(09-14~09-17)
     expect(e.activeStage?.orderIndex).toBe(4);
     expect(e.progressDate).toBe('2026-09-15');
-    expect(e.bandStart).toBe('2026-09-05');
-    expect(e.bandEnd).toBe('2026-09-15');
+    // 图3修复：bandStart 现在=min(阶段实际首日 09-01, plannedStart 09-05)=09-01，不再固定用计划基线
+    expect(e.bandStart).toBe('2026-09-01');
+    expect(e.bandEnd).toBe('2026-09-15'); // clamp(今日 09-15, 阶段首 09-01, 阶段末 09-30)
     expect(e.color).toBe(STAGE_BAR_COLORS[4]);
     expect(e.isGhost).toBe(false);
   });
@@ -216,10 +217,10 @@ describe('calendarMath.computeCalendarEntry（PRD §4.1 / §4.2）', () => {
     const p = makeProject({ plannedStartAt: '2026-09-05', plannedEndAt: '2026-09-30' });
     const e = computeCalendarEntry(p, nineStages('2026-09-15'), meta);
     const g = bandGeometry(e, meta);
-    expect(g.startIdx).toBe(4); // 09-05
+    expect(g.startIdx).toBe(0); // 09-01（阶段实际首日，早于计划基线 09-05）
     expect(g.endIdx).toBe(14); // 09-15
-    expect(g.leftPct).toBeCloseTo((4 / 30) * 100, 5);
-    expect(g.widthPct).toBeCloseTo((11 / 30) * 100, 5);
+    expect(g.leftPct).toBeCloseTo(0, 5);
+    expect(g.widthPct).toBeCloseTo((15 / 30) * 100, 5);
     expect(g.dotLeftPct).toBeCloseTo((14 / 30) * 100, 5);
   });
 });

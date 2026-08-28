@@ -100,6 +100,24 @@ function maxDate(a: string, b: string): string {
   return a > b ? a : b;
 }
 
+function minDate(a: string, b: string): string {
+  return a < b ? a : b;
+}
+
+/**
+ * 可见阶段的实际起止跨度（图3修复：月历色带跟随阶段实际进度，而非项目计划基线）。
+ * 只统计 visible!==false 的阶段（与 pickActiveStage/computeProjectPercent 口径一致）。
+ * 无可见阶段 → null（调用方回落项目计划日期）。
+ */
+export function stageSpan(stages: Stage[]): { minStart: string; maxEnd: string } | null {
+  const visible = stages.filter((s) => s.visible !== false);
+  if (visible.length === 0) return null;
+  return {
+    minStart: visible.map((s) => s.startAt.slice(0, 10)).reduce((a, b) => (a < b ? a : b)),
+    maxEnd: visible.map((s) => s.endAt.slice(0, 10)).reduce((a, b) => (a > b ? a : b)),
+  };
+}
+
 /** 当月内 0-based 列序号（越界裁切到 [0, daysInMonth-1]） */
 export function dayIndexInMonth(date: string, meta: CalendarMonthMeta): number {
   const raw = totalDaysInclusive(meta.monthStart, clampDate(date, meta.monthStart, meta.monthEnd)) - 1;
@@ -150,12 +168,28 @@ export function computeCalendarEntry(
     progressDate = clampDate(today, activeStage.startAt.slice(0, 10), activeStage.endAt.slice(0, 10));
   else progressDate = today;
 
-  const bandStart = clampDate(project.plannedStartAt, meta.monthStart, meta.monthEnd);
-  // 逾期：以 today 为下界，确保色带延伸到今天（强提示）
-  const rawEnd =
-    status === 'overdue'
-      ? clampDate(maxDate(progressDate, today), meta.monthStart, meta.monthEnd)
-      : clampDate(progressDate, meta.monthStart, meta.monthEnd);
+  // 色带口径（图3修复）：跟随阶段实际起止，让改期/加任务后月历同步。
+  // 计划基线（plannedStart/End）是建档一次性合同值，只作为「无可见阶段」时的回落。
+  const span = stageSpan(stages);
+  const spanStart = span ? span.minStart : project.plannedStartAt;
+  const spanEnd = span ? span.maxEnd : project.plannedEndAt;
+  const bandStart = clampDate(spanStart, meta.monthStart, meta.monthEnd);
+  // bandEnd：
+  //   overdue    → 今日（强提示，保持现状）
+  //   completed  → 末阶段结束日
+  //   not_started→ 计划开始（ghost 点，不因阶段未来而拉宽带）
+  //   in_progress→ clamp(今日, 阶段首, 阶段末)：色带从阶段实际首日延伸到实际进度点，不等同 project 承诺日期
+  let rawEnd: string;
+  if (status === 'overdue') {
+    rawEnd = clampDate(maxDate(progressDate, today), meta.monthStart, meta.monthEnd);
+  } else if (status === 'completed') {
+    rawEnd = clampDate(spanEnd, meta.monthStart, meta.monthEnd);
+  } else if (status === 'not_started') {
+    rawEnd = clampDate(project.plannedStartAt, meta.monthStart, meta.monthEnd);
+  } else {
+    const clampToday = today < spanStart ? spanStart : today > spanEnd ? spanEnd : today;
+    rawEnd = clampDate(clampToday, meta.monthStart, meta.monthEnd);
+  }
   const bandEnd = rawEnd < bandStart ? bandStart : rawEnd;
 
   const percent = computeProjectPercent(stages);

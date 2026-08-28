@@ -31,7 +31,6 @@ export function ManualFallbackForm({
   const [type, setType] = useState<ProjectType>(ProjectType.Dining);
   const [address, setAddress] = useState('');
   const [clientName, setClientName] = useState('');
-  const [amount, setAmount] = useState('');
   const [startAt, setStartAt] = useState(new Date().toISOString().slice(0, 10));
   const [endAt, setEndAt] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +67,7 @@ export function ManualFallbackForm({
       type,
       address: address.trim(),
       clientName: clientName.trim(),
-      contractAmount: amount ? Number(amount.replace(/[^\d.]/g, '')) : null,
+      contractAmount: null, // 合同额字段已从建档 UI 移除（数据模型保留，兼容老数据）；此处恒传 null
       signedAt: null,
       plannedStartAt: startAt,
       plannedEndAt: endAt,
@@ -144,15 +143,6 @@ export function ManualFallbackForm({
             <input
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">合同额（元，选填）</span>
-            <input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="数字"
               className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
             />
           </label>

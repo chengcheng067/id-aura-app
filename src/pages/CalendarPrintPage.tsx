@@ -12,6 +12,7 @@ import {
   computeCalendarEntry,
   dayIndexInMonth,
   shiftMonth,
+  stageSpan,
   type CalendarMonthMeta,
 } from '../components/calendar/calendarMath';
 import { stageColorOf } from '../components/calendar/calendarColors';
@@ -90,10 +91,14 @@ export function CalendarPrintPage(): JSX.Element {
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   // 所有 Hook 必须在任何条件提前 return 之前调用完成
-  const months = useMemo(
-    () => (project ? monthsBetween(project.plannedStartAt.slice(0, 10), project.plannedEndAt.slice(0, 10)) : []),
-    [project],
-  );
+  // 月份覆盖范围（图3修复）：取「阶段实际起止 ∪ 项目计划基线」，避免阶段拖出计划范围后被裁剪
+  const months = useMemo(() => {
+    if (!project) return [];
+    const span = stageSpan(stages);
+    const s = span && span.minStart < project.plannedStartAt.slice(0, 10) ? span.minStart : project.plannedStartAt.slice(0, 10);
+    const e = span && span.maxEnd > project.plannedEndAt.slice(0, 10) ? span.maxEnd : project.plannedEndAt.slice(0, 10);
+    return monthsBetween(s, e);
+  }, [project, stages]);
   const todayIso = localIso(new Date());
   const entries = useMemo(() => {
     if (!project) return [];
