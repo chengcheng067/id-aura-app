@@ -194,7 +194,8 @@ export function TimelineView({
       </div>
 
       <div className="glass-medium overflow-x-auto rounded-lg border border-sand bg-paper shadow-soft">
-        <div style={{ width: LEFT_COL_W + chartW, minWidth: '100%' }}>
+        {/* 宽度精确贴合时间轴（左列 + 图表），不拉伸到满屏，避免右侧出现无意义空白 */}
+        <div style={{ width: LEFT_COL_W + chartW }}>
           {/* 表头行：左侧空置 + 刻度尺 */}
           <div className="flex" style={{ height: HEADER_H }}>
             <div
