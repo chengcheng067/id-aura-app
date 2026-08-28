@@ -25,6 +25,8 @@ export interface ScheduleSection {
   startAt: string;
   endAt: string;
   status: StageStatus;
+  /** 阶段色号（1..9，多阶段项目循环）；打印时间轴摘要取色用 */
+  colorIndex: number;
   tasks: ScheduleTaskRow[];
 }
 
@@ -58,6 +60,7 @@ export function buildScheduleSections(opts: {
       startAt: s.startAt.slice(0, 10),
       endAt: s.endAt.slice(0, 10),
       status: s.status,
+      colorIndex: s.colorIndex,
       tasks: stageTasks.map((t) => ({
         id: t.id,
         title: t.title,

@@ -7,7 +7,8 @@ import { ArrowLeft, CalendarDays, Download, FileText, Printer } from 'lucide-rea
 import { useProjectsStore } from '../store/useProjectsStore';
 import { useMembersStore } from '../store/useMembersStore';
 import { useRoleGuard } from '../hooks/useRoleGuard';
-import { StageStatus } from '../core/types/enums';
+import { StageStatus, ScheduleBasis, SCHEDULE_BASIS_LABELS } from '../core/types/enums';
+import { resolveStageColorIndex } from '../core/template/stage-fallback';
 import { STAGE_BAR_COLORS } from '../components/timeline/stageColors';
 import {
   buildScheduleSections,
@@ -206,7 +207,7 @@ export function SchedulePrintPage(): JSX.Element {
               <p className="mt-1 text-sm text-slate-600">
                 {project.clientName && <span>客户：{project.clientName} · </span>}
                 {project.address && <span>地址：{project.address} · </span>}
-                打印时间：{nowText}
+                排期基准：{SCHEDULE_BASIS_LABELS[project.scheduleBasis] ?? SCHEDULE_BASIS_LABELS[ScheduleBasis.Calendar]} · 打印时间：{nowText}
               </p>
 
               <section className="mt-3">
@@ -223,7 +224,7 @@ export function SchedulePrintPage(): JSX.Element {
                           // 按天数比例分配宽度（旧实现 Math.max(12,…) 会导致 9 段合计溢出）
                           flexGrow: days,
                           flexBasis: 0,
-                          backgroundColor: STAGE_BAR_COLORS[s.orderIndex] ?? '#BBB59D',
+                          backgroundColor: STAGE_BAR_COLORS[resolveStageColorIndex(s.orderIndex, s.colorIndex)] ?? '#BBB59D',
                         }}
                       >
                         {s.orderIndex}

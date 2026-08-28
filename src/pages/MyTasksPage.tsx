@@ -15,6 +15,7 @@ import { remainingDays } from '../lib/date';
 import { StatCard } from '../components/project/StatCard';
 import { STAGE_BAR_COLORS } from '../components/timeline/stageColors';
 import type { Project, Stage, Task } from '../core/types/entities';
+import { resolveStageColorIndex } from '../core/template/stage-fallback';
 
 type FilterMode = 'by-project' | 'by-time';
 
@@ -279,7 +280,9 @@ function TaskCard({
 }): JSX.Element {
   const days = task.dueDate ? remainingDays(task.dueDate.slice(0, 10), todayIso) : null;
   const overdue = days !== null && days < 0;
-  const stageColor = stage ? STAGE_BAR_COLORS[stage.orderIndex] ?? STAGE_BAR_COLORS[9] : STAGE_BAR_COLORS[9];
+  const stageColor = stage
+    ? STAGE_BAR_COLORS[resolveStageColorIndex(stage.orderIndex, stage.colorIndex)] ?? STAGE_BAR_COLORS[9]
+    : STAGE_BAR_COLORS[9];
 
   return (
     <li className="glass-medium flex items-center gap-3 overflow-hidden rounded-[12px] border border-sand p-3">

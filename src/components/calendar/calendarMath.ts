@@ -168,7 +168,7 @@ export function computeCalendarEntry(
   let isGhost = false;
   switch (status) {
     case 'in_progress':
-      color = activeStage ? stageColorOf(activeStage.orderIndex) : COMPLETED_COLOR;
+      color = activeStage ? stageColorOf(activeStage.orderIndex, activeStage.colorIndex) : COMPLETED_COLOR;
       break;
     case 'completed':
       color = COMPLETED_COLOR;

@@ -4,6 +4,7 @@ import { xOf, type TimelineRange } from '../../lib/date';
 import type { Stage } from '../../core/types/entities';
 import { StageStatus } from '../../core/types/enums';
 import { STAGE_BAR_COLORS } from './stageColors';
+import { resolveStageColorIndex } from '../../core/template/stage-fallback';
 import { STAGE_ACTIVE_STROKE, STAGE_GLOW_COLOR } from './timelineColors';
 
 /**
@@ -56,7 +57,9 @@ export function StageBar({
   }
 
   const w = Math.max(pxPerDay, xEnd - xStart);
-  const fill = STAGE_BAR_COLORS[stage.orderIndex] ?? '#88A293';
+  // 颜色与 orderIndex 解耦：优先用阶段自带的 colorIndex（多阶段项目 1..9 循环色板），
+  // 缺失/越界时按 orderIndex 安全回落到 indoor_full 套餐对应色（读时回落范式，零迁移）。
+  const fill = STAGE_BAR_COLORS[resolveStageColorIndex(stage.orderIndex, stage.colorIndex)] ?? '#88A293';
 
   // 拖拽时显示的新日期（用于气泡提示）
   const previewDate =

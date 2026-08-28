@@ -7,6 +7,7 @@
 
 import { STAGE_BAR_COLORS } from '../timeline/stageColors';
 import { TODAY_LINE_COLOR, RING_PROGRESS } from '../timeline/timelineColors';
+import { resolveStageColorIndex } from '../../core/template/stage-fallback';
 
 /** 未开始幽灵态底色 = mist token（#a0a0a8） */
 export const NOT_STARTED_COLOR = '#a0a0a8';
@@ -20,7 +21,8 @@ export const COMPLETED_COLOR = STAGE_BAR_COLORS[9];
 /** 末端蓝色进度点 = pine token（#6ea8fe，复用完成度环进度色） */
 export const PROGRESS_DOT_COLOR = RING_PROGRESS;
 
-/** 按阶段 orderIndex 取莫兰迪九段色（与旧时间轴完全一致） */
-export function stageColorOf(orderIndex: number): string {
-  return STAGE_BAR_COLORS[orderIndex] ?? COMPLETED_COLOR;
+/** 按阶段取莫兰迪九段色（与旧时间轴完全一致）。
+ *  colorIndex 优先（多阶段项目 1..9 循环色板），缺失时按 orderIndex 读时回落。 */
+export function stageColorOf(orderIndex: number, colorIndex?: number | null): string {
+  return STAGE_BAR_COLORS[resolveStageColorIndex(orderIndex, colorIndex)] ?? COMPLETED_COLOR;
 }
