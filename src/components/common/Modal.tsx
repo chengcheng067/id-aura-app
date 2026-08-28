@@ -105,18 +105,23 @@ export function Modal({
       aria-modal="true"
       aria-label={ariaLabel}
       className={`fixed inset-0 z-[70] ${
-        placement === 'right' ? 'flex justify-end bg-ink/20' : 'flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6 backdrop-blur-[6px]'
+        placement === 'right' ? 'bg-ink/20' : 'bg-[rgba(15,23,42,0.45)] backdrop-blur-[6px]'
       }`}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
-      {/* 面板：焦点圈禁的锚点。玻璃样式放内层面板，勿放此处。
-          居中弹窗用 justify-center；右侧抽屉用自撑（子组件给 h-full 宽度即可）。 */}
+      {/* 点击关闭判定放在锚点面板（e.currentTarget）上而非遮罩：因为面板是 flex 容器且覆盖内容区，
+          点面板自身的空白区域（子面板之外）即关闭，点子面板内部不关闭。这样居中/右侧抽屉一致生效，
+          且子面板用受限宽度时不吞掉外围点击。padding 也放这里，让 p-6 缓冲区的点击命中关闭。
+          注意必须加 h-full：父遮罩非 flex 容器，锚点面板高度默认=内容高，加 h-full 才能撑满视口，
+          否则 center 模式的垂直居中失效、right 抽屉的 h-full 子面板也撑不满视口。 */}
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`outline-none ${placement === 'right' ? 'w-full' : 'flex w-full justify-center'}`}
+        className={`outline-none flex h-full w-full ${
+          placement === 'right' ? 'justify-end' : 'items-center justify-center p-6'
+        }`}
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
       >
         {children}
       </div>

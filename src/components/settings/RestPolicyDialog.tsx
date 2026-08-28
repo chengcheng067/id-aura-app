@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { CalendarDays, X } from 'lucide-react';
 
@@ -64,14 +64,6 @@ export function RestPolicyDialog({ onClose }: { onClose(): void }): JSX.Element 
   const [saving, setSaving] = useState(false);
 
   const todayIso = useMemo(() => dayjs().format('YYYY-MM-DD'), []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   /** 切换制度：切到大小休且锚点不可用时，以本周为大休周起算 */
   const onPickKind = (kind: RestPolicyKind): void => {
