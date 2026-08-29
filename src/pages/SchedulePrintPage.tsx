@@ -190,36 +190,42 @@ export function SchedulePrintPage(): JSX.Element {
             pageRefs.current[idx] = el;
           }}
           className="a4-page mx-auto mb-6 flex flex-col"
-          style={{ width: A4_WIDTH_PX, minHeight: A4_HEIGHT_PX, padding: 40 }}
+          style={{ width: A4_WIDTH_PX, minHeight: A4_HEIGHT_PX, padding: 44 }}
         >
-          {/* 页眉 */}
-          <div className="mb-3 flex items-baseline justify-between border-b border-slate-200 pb-2">
-            <span className="text-[13px] font-semibold text-slate-800">{project.name}</span>
-            <span className="text-[11px] text-slate-500">
+          {/* 页眉（running header 弱化：不重复大标题，仅作引导） */}
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+            <span className="text-[12px] font-medium text-slate-500">{project.name}</span>
+            <span className="text-[11px] tabular-nums text-slate-400">
               {idx === 0 ? `工期 ${startAt} — ${endAt}（共 ${totalDays} 天）` : `第 ${idx + 1} 页`}
             </span>
           </div>
 
-          {/* 第一页：项目信息 + 时间轴摘要 */}
+          {/* 第一页：项目信息（封面感）+ 时间轴摘要 */}
           {idx === 0 && (
             <>
-              <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
-              <p className="mt-1 text-sm text-slate-600">
-                {project.clientName && <span>客户：{project.clientName} · </span>}
-                {project.address && <span>地址：{project.address} · </span>}
-                排期基准：{SCHEDULE_BASIS_LABELS[project.scheduleBasis] ?? SCHEDULE_BASIS_LABELS[ScheduleBasis.Calendar]} · 打印时间：{nowText}
-              </p>
+              <h1 className="mb-5 text-[28px] font-bold leading-tight tracking-tight text-slate-900">
+                {project.name}
+              </h1>
+              <div className="text-xs leading-relaxed text-slate-500">
+                <p>
+                  {project.clientName && <span>客户：{project.clientName}　</span>}
+                  {project.address && <span>地址：{project.address}</span>}
+                </p>
+                <p className="mt-0.5">
+                  排期基准：{SCHEDULE_BASIS_LABELS[project.scheduleBasis] ?? SCHEDULE_BASIS_LABELS[ScheduleBasis.Calendar]}　·　打印时间：{nowText}
+                </p>
+              </div>
 
-              <section className="mt-3">
-                <h2 className="mb-1.5 text-sm font-semibold text-slate-800">时间轴摘要</h2>
-                <div className="flex h-6 w-full overflow-hidden rounded border border-slate-300">
+              <section className="mt-6">
+                <h2 className="mb-2 text-sm font-semibold text-slate-800">时间轴摘要</h2>
+                <div className="flex h-9 w-full overflow-hidden rounded-lg border border-slate-200">
                   {sections.map((s) => {
                     const days = totalDaysInclusive(s.startAt, s.endAt) || 1;
                     return (
                       <div
                         key={s.orderIndex}
                         title={`${s.orderIndex}. ${s.name}（${s.startAt} — ${s.endAt} · ${statusLabel(s.status)}）`}
-                        className="schedule-bar-segment flex min-w-0 items-center justify-center border-r border-slate-300 text-[9px] font-medium text-slate-700 last:border-r-0"
+                        className="schedule-bar-segment flex min-w-0 items-center justify-center text-[11px] font-semibold text-white"
                         style={{
                           // 按天数比例分配宽度（旧实现 Math.max(12,…) 会导致 9 段合计溢出）
                           flexGrow: days,
@@ -232,25 +238,42 @@ export function SchedulePrintPage(): JSX.Element {
                     );
                   })}
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  色块 = 阶段（1→9）；图例：
-                  {(
-                    [
-                      StageStatus.NotStarted,
-                      StageStatus.InProgress,
-                      StageStatus.Completed,
-                      StageStatus.Delayed,
-                    ] as StageStatus[]
-                  ).map((st) => (
-                    <span key={st} className="ml-2 inline-flex items-center gap-1">
+                {/* 图例三块分行：阶段色块 / 状态 / 完成标记；取色统一走 STAGE_BAR_COLORS */}
+                <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">色块 = 阶段：</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    {sections.slice(0, 9).map((s) => (
                       <span
-                        className={`schedule-status-dot inline-block h-2.5 w-2.5 rounded-sm ${statusColor(st)}`}
+                        key={s.orderIndex}
+                        className="schedule-status-dot inline-block h-3 w-3 rounded-sm"
+                        style={{
+                          backgroundColor:
+                            STAGE_BAR_COLORS[resolveStageColorIndex(s.orderIndex, s.colorIndex)] ?? '#BBB59D',
+                        }}
                       />
-                      {statusLabel(st)}
-                    </span>
-                  ))}
-                  ；✓=已完成 □=未完成
-                </p>
+                    ))}
+                    <span className="text-slate-400">1→9</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    状态：
+                    {(
+                      [
+                        StageStatus.NotStarted,
+                        StageStatus.InProgress,
+                        StageStatus.Completed,
+                        StageStatus.Delayed,
+                      ] as StageStatus[]
+                    ).map((st) => (
+                      <span key={st} className="ml-1 inline-flex items-center gap-1">
+                        <span
+                          className={`schedule-status-dot inline-block h-2.5 w-2.5 rounded-sm ${statusColor(st)}`}
+                        />
+                        {statusLabel(st)}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="inline-flex items-center gap-2 text-slate-400">✓ 已标记完成　·　□ 未完成</span>
+                </div>
               </section>
             </>
           )}
@@ -262,8 +285,8 @@ export function SchedulePrintPage(): JSX.Element {
             ))}
           </div>
 
-          {/* 页脚 */}
-          <footer className="mt-4 flex items-center justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-500">
+          {/* 页脚（更浅分隔 + tabular 页码） */}
+          <footer className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] tabular-nums text-slate-400">
             <span>打印人：{currentMember?.name ?? '—'} · {nowText}</span>
             <span>
               第 {idx + 1} / {pages.length} 页 · ID Plan 日程表
@@ -284,41 +307,81 @@ function StageBlock({
   chipCls(status: StageStatus): string;
   label(status: StageStatus): string;
 }): JSX.Element {
+  const stageColor = STAGE_BAR_COLORS[resolveStageColorIndex(section.orderIndex, section.colorIndex)] ?? '#BBB59D';
+  const hasTasks = section.tasks.length > 0;
   return (
-    <section className="schedule-section mb-4">
-      <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-800">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[11px] text-slate-700">
+    <section className="schedule-section mb-6 break-inside-avoid">
+      {/* 阶段标题行：序号色块 + 阶段名 + 日期（主次分开）+ 状态胶囊 */}
+      <h3 className="mb-2 flex items-center gap-2.5 text-[15px] font-semibold text-slate-800">
+        <span
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+          style={{ backgroundColor: stageColor }}
+        >
           {section.orderIndex}
         </span>
-        {section.name}
-        <span className="text-xs font-normal text-slate-500">
+        <span className="truncate">{section.name}</span>
+        <span className="shrink-0 tabular-nums text-[11px] font-normal text-slate-400">
           {section.startAt} — {section.endAt}
         </span>
-        <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${chipCls(section.status)}`}>
+        <span className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${chipCls(section.status)}`}>
           {label(section.status)}
         </span>
       </h3>
-      {section.tasks.length === 0 ? (
-        <p className="rounded border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-400">
-          无任务
-        </p>
+      {!hasTasks ? (
+        <p className="rounded-md bg-slate-50 px-4 py-3 text-center text-xs text-slate-400">无任务</p>
       ) : (
-        <table className="schedule-table">
+        <table className="schedule-table w-full border-collapse text-[12px] leading-relaxed">
           <thead>
-            <tr className="bg-slate-100 text-left text-slate-700">
-              <th className="w-1/2">任务标题</th>
-              <th className="w-1/4">参与人</th>
-              <th className="w-[18%]">截止日</th>
-              <th className="w-[12%]">状态</th>
+            <tr className="text-left">
+              <th className="w-[46%] border-b-2 border-slate-300 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                任务标题
+              </th>
+              <th className="w-[24%] border-b-2 border-slate-300 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                参与人
+              </th>
+              <th className="w-[16%] border-b-2 border-slate-300 px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                截止日
+              </th>
+              <th className="w-[14%] border-b-2 border-slate-300 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                状态
+              </th>
             </tr>
           </thead>
           <tbody>
-            {section.tasks.map((t) => (
-              <tr key={t.id}>
-                <td>{t.title}</td>
-                <td>{t.assigneeNames.length > 0 ? t.assigneeNames.join('、') : '—'}</td>
-                <td>{t.dueDate ?? '—'}</td>
-                <td>{t.done ? '✓ 完成' : '□ 未完成'}</td>
+            {section.tasks.map((t, tIdx) => (
+              <tr
+                key={t.id}
+                className={`border-b border-slate-100 ${tIdx % 2 === 1 ? 'bg-slate-50/60' : ''} ${tIdx === section.tasks.length - 1 ? 'rounded-b-md' : ''}`}
+              >
+                <td className="px-3 py-2.5 text-slate-700">{t.title}</td>
+                <td className="px-3 py-2.5 text-slate-600">
+                  {t.assigneeNames.length > 0 ? (
+                    <span className="flex flex-wrap gap-1">
+                      {t.assigneeNames.map((n) => (
+                        <span
+                          key={n}
+                          className="inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600"
+                        >
+                          {n}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">{t.dueDate ?? '—'}</td>
+                <td className="whitespace-nowrap px-3 py-2.5">
+                  {t.done ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                      ✓ 完成
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                      □ 未完成
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

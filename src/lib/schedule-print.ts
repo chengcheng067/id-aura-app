@@ -121,15 +121,15 @@ export const A4_HEIGHT_PX = 1123;
 
 /** 高度估算常量（px，与 SchedulePrintPage 的行高/间距保持同量级） */
 const EST = {
-  sectionHeader: 46,
-  row: 30,
-  emptySection: 36,
-  sectionGap: 20,
+  sectionHeader: 52,
+  row: 46,
+  emptySection: 44,
+  sectionGap: 24,
   /** 第一页额外的页头：项目信息 + 时间轴摘要 */
-  firstPageHeader: 190,
-  pageHeaderBand: 56,
-  pageFooter: 44,
-  pagePadding: 80,
+  firstPageHeader: 210,
+  pageHeaderBand: 58,
+  pageFooter: 48,
+  pagePadding: 88,
 };
 
 /** 单个阶段 section 的估算高度 */
