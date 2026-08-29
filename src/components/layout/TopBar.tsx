@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 
 import { NewProjectMenu } from '../project/NewProjectMenu';
 import { MemberIdentityPicker } from './MemberIdentityPicker';
@@ -24,6 +25,26 @@ export function TopBar(): JSX.Element {
   const setHomeViewMode = useUiStore((s) => s.setHomeViewMode);
   const searchQuery = useUiStore((s) => s.searchQuery);
   const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * ⌘K / Ctrl+K / Alt+K 全局快捷键：聚焦搜索框。
+   * 兼容桌面（⌘K 徽标文案）与用户习惯的 Alt+K 触发方式。
+   */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (
+        (e.metaKey || e.ctrlKey || e.altKey) &&
+        e.key.toLowerCase() === 'k'
+      ) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const onHome = location.pathname === '/';
   const onProjectPage = onHome || location.pathname.startsWith('/project');
@@ -59,13 +80,24 @@ export function TopBar(): JSX.Element {
                 ⌕
               </span>
               <input
+                ref={searchRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索项目、任务或客户…"
                 aria-label="搜索项目、任务或客户"
                 className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-mist"
               />
-              <span className="rounded-[8px] border border-sand px-2 py-1 text-xs text-mist">⌘K</span>
+              <button
+                type="button"
+                onClick={() => {
+                  searchRef.current?.focus();
+                  searchRef.current?.select();
+                }}
+                aria-label="聚焦搜索（快捷键 ⌘K / Ctrl+K / Alt+K）"
+                className="rounded-[8px] border border-sand px-2 py-1 text-xs text-mist transition-colors hover:bg-sand hover:text-ink"
+              >
+                ⌘K
+              </button>
             </div>
           </div>
 
