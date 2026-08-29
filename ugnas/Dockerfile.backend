@@ -25,11 +25,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 make g++ ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# 依赖优先缓存
+# 依赖优先缓存。
+# lockfile 不含 electron/electron-builder/cross-env（桌面打包专用），与 package.json
+# 不同步，npm ci 会报 EUSAGE；因此直接 npm install --include=optional，
+# 确保 better-sqlite3（声明在 optionalDependencies）被装上——npm 默认会跳过 optional 依赖。
+# 同时用 ELECTRON_SKIP_BINARY_DOWNLOAD=1 跳过 electron 二进制下载（后端不需要桌面运行时）。
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 COPY package.json package-lock.json* ./
-# better-sqlite3 是 optionalDependency，仍需显式安装；
-# 用 --include=optional 确保它在生产安装中不被跳过。
-RUN npm ci --include=optional || npm install --include=optional
+RUN npm install --include=optional --no-audit --no-fund
 
 # 拷贝后端源码（server/）
 COPY server/ ./server/
