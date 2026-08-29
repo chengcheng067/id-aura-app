@@ -1,0 +1,24 @@
+# =====================================================================
+# ID Plan · 仓库根 .dockerignore（Docker build context 是仓库根，故须放在根目录）
+# 作用：构建镜像时只带必要源码，排除 node_modules / 测试 / 产物 / 数据库 / git
+# =====================================================================
+node_modules
+dist
+build-dist
+release
+qa-scratch
+deliverables
+generated-images
+tests
+.github
+result-*.txt
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.local
+.env.*.local
+# 运行时生成的 SQLite 空库不进镜像（后端首启 createDb 自动建）
+server/*.db
+server/*.db-wal
+server/*.db-shm

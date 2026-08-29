@@ -24,10 +24,11 @@ LABEL maintainer="chengcheng"
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # nginx 配置（SPA 回退 + /env-config.js 运行时注入 + /api 反向代理占位）
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# 注意：context 是仓库根，Dockerfile 在 ugnas/ 下，故引用 ugnas/nginx/... 与 ugnas/scripts/...
+COPY ugnas/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 # 运行时配置模板（entrypoint 渲染）
-COPY nginx/env-config.template.js /etc/nginx/templates/env-config.template.js
-COPY scripts/entrypoint.sh /docker-entrypoint.d/99-idplan-env.sh
+COPY ugnas/nginx/env-config.template.js /etc/nginx/templates/env-config.template.js
+COPY ugnas/scripts/entrypoint.sh /docker-entrypoint.d/99-idplan-env.sh
 RUN chmod +x /docker-entrypoint.d/99-idplan-env.sh
 
 EXPOSE 80

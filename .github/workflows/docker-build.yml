@@ -1,0 +1,118 @@
+# =====================================================================
+# ID Plan · GitHub Actions 云构建工作流
+#
+# 作用：在 GitHub 云端（runner 自带 Docker）构建「前端 + 后端」双架构镜像：
+#   - 推送到 ghcr.io 容器仓库  → NAS 用 docker pull 拉取（升级方便）
+#   - 导出单架构 oci .tar     → NAS 用 Docker「导入镜像」一次装好（不依赖网络）
+#   全程不需要用户本机装 Docker。
+#
+# 触发：
+#   1. push 到 master 分支
+#   2. 手动 workflow_dispatch（可填版本号）
+#
+# 推送目标（ghcr）：
+#   ghcr.io/chengcheng067/idplan:<ver>           前端（nginx 托管 dist）
+#   ghcr.io/chengcheng067/idplan-backend:<ver>   后端（Fastify + SQLite）
+#
+# 前置：仓库 Settings → Actions → General → Workflow permissions → Read and write
+#       （否则无法 push 到 ghcr；此处 job 已显式声明 packages: write）
+# =====================================================================
+name: docker-build
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "镜像版本号（默认 0.3.0）"
+        required: false
+        default: "0.3.0"
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: chengcheng067          # ghcr 镜像名必须全小写
+  FRONT: idplan
+  BACK: idplan-backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 确定版本号
+        id: ver
+        run: |
+          VER="${{ github.event.inputs.version }}"
+          if [ -z "$VER" ]; then VER="0.3.0"; fi
+          echo "VERSION=${VER}" >> "$GITHUB_ENV"
+          echo "tag=${VER}" >> "$GITHUB_OUTPUT"
+
+      # ---------- 构建并推送 ghcr（多架构并存） ----------
+      - name: 构建并推送前端镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ugnas/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.FRONT }}:${{ env.VERSION }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.FRONT }}:latest
+
+      - name: 构建并推送后端镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ugnas/Dockerfile.backend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.BACK }}:${{ env.VERSION }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.BACK }}:latest
+
+      # ---------- 导出单架构 oci tar（NAS「导入镜像」用） ----------
+      - name: 导出 amd64.tar（前端 + 后端）
+        run: |
+          mkdir -p release-docker
+          docker buildx build --platform linux/amd64 \
+            -f ugnas/Dockerfile -t idplan:amd64 \
+            --output type=oci,dest=release-docker/idplan-amd64.tar .
+          docker buildx build --platform linux/amd64 \
+            -f ugnas/Dockerfile.backend -t idplan-backend:amd64 \
+            --output type=oci,dest=release-docker/idplan-backend-amd64.tar .
+
+      - name: 导出 arm64.tar（前端 + 后端）
+        run: |
+          docker buildx build --platform linux/arm64 \
+            -f ugnas/Dockerfile -t idplan:arm64 \
+            --output type=oci,dest=release-docker/idplan-arm64.tar .
+          docker buildx build --platform linux/arm64 \
+            -f ugnas/Dockerfile.backend -t idplan-backend:arm64 \
+            --output type=oci,dest=release-docker/idplan-backend-arm64.tar .
+
+      - name: 创建 Release 并上传 tar 附件
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+        with:
+          name: "ID Plan Docker ${{ env.VERSION }}"
+          tag_name: "docker-${{ env.VERSION }}"
+          files: release-docker/*.tar
+          fail_on_unmatched_files: false
+          generate_release_notes: false
