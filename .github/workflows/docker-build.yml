@@ -21,7 +21,7 @@ name: docker-build
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       version:
@@ -109,7 +109,7 @@ jobs:
 
       - name: 创建 Release 并上传 tar 附件
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+        if: contains(fromJSON('["refs/heads/main","refs/heads/master"]'), github.ref) || github.event_name == 'workflow_dispatch'
         with:
           name: "ID Plan Docker ${{ env.VERSION }}"
           tag_name: "docker-${{ env.VERSION }}"
