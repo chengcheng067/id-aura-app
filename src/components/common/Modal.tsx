@@ -121,6 +121,11 @@ export function Modal({
         className={`outline-none flex h-full w-full ${
           placement === 'right' ? 'justify-end' : 'items-center justify-center p-6'
         }`}
+        // 拦截合成 click，阻止其沿 React 组件树冒泡到背后触发器的 onClick（如项目卡片 → 跳转）。
+        // 关键：Modal 用 createPortal 只改 DOM 挂载点，React 树仍是调用方的子树，
+        // 故点弹窗内任意元素（输入框等）的 click 会冒泡到外层卡片的 onClick 触发跳转。
+        // 这里 stopPropagation 从底座根治——所有走 Modal/ConfirmDialog 的浮层都受保护。
+        onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
