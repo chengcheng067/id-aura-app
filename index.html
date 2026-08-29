@@ -12,11 +12,16 @@
       content="《ID Plan》— 室内设计项目节点管理系统：把合同变成一张看得懂的阶段时间轴。"
     />
     <title>ID Plan</title>
-    <!-- 运行时配置注入点（Docker / 绿联容器端在启动时覆盖，实现不重构镜像切换数据源）：
-         构建期占位 local；容器内由 /env-config.js 覆盖 window.__APP_ENV__ -->
+    <!-- 运行时配置注入点（Docker / 绿联容器端在启动时覆盖，实现不重建镜像切换数据源）：
+         1) 先给构建期占位（local），保证非容器环境（本地开发 / Electron 桌面版）可直接运行；
+         2) 再【同步】加载 /env-config.js 覆盖它——顺序必须在占位之后，否则注入值会被占位反向覆盖；
+            用同步 script（非 module/非 defer）确保在 main.tsx 读取 appEnv 之前执行完毕。
+            该文件由容器 entrypoint.sh 用环境变量渲染；非容器环境无此文件时静默 404，
+            由 onerror 吞掉错误，不影响任何既有行为。 -->
     <script>
       window.__APP_ENV__ = { VITE_DATA_SOURCE: 'local', VITE_API_BASE_URL: '' };
     </script>
+    <script src="/env-config.js" onerror="/* 非容器环境无此文件，忽略即可 */"></script>
   </head>
   <body>
     <!-- 宋体系衬线标题字体为本地字体栈优先（离线优先原则，不强拉网络字体）；

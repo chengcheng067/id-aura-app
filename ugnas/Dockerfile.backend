@@ -1,0 +1,67 @@
+# =====================================================================
+# ID Plan · 后端服务镜像（Fastify + better-sqlite3）
+#
+# 为什么单独一个镜像：
+#   前端镜像（Dockerfile）是 nginx 托管静态产物，跑不了 Node 后端；
+#   后端需要 Node 运行时 + better-sqlite3（native 模块）。两者职责分离，
+#   由 docker-compose 编排，前端经 nginx /api 反代访问后端。
+#
+# 为什么用 Debian slim 而不是 alpine：
+#   better-sqlite3 是 native 模块，alpine 的 musl libc 与之兼容性差
+#   （prebuilt 二进制多为 glibc，musl 下需完整编译且易踩坑）。
+#   Debian slim + 完整编译工具链，在 amd64/arm64 上都能稳定构建。
+#
+# 构建（多架构，绿联 NAS 有 amd64 与 arm64 两种机型）：
+#   docker buildx build --platform linux/amd64 -f ugnas/Dockerfile.backend -t idplan-backend:amd64 .
+#   docker buildx build --platform linux/arm64 -f ugnas/Dockerfile.backend -t idplan-backend:arm64 .
+# =====================================================================
+
+FROM node:20-slim AS build
+WORKDIR /app
+
+# 编译工具链：better-sqlite3 优先用 prebuilt 二进制，
+# 若无匹配版本（如 arm64 某些组合）则回落到 node-gyp 源码编译。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      python3 make g++ ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 依赖优先缓存
+COPY package.json package-lock.json* ./
+# better-sqlite3 是 optionalDependency，仍需显式安装；
+# 用 --include=optional 确保它在生产安装中不被跳过。
+RUN npm ci --include=optional || npm install --include=optional
+
+# 拷贝后端源码（server/）
+COPY server/ ./server/
+
+# ---------- 运行阶段 ----------
+FROM node:20-slim
+LABEL maintainer="chengcheng"
+
+WORKDIR /app
+
+# 运行期只需要 better-sqlite3 的 .node 产物与 fastify 等运行时依赖
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/server ./server
+COPY package.json ./
+
+# 数据目录：SQLite 单文件 + WAL 副文件都落这里，由 compose 挂卷持久化。
+# 用环境变量 CHANGXIA_DB 可覆盖具体文件名（server/db.ts 已支持）。
+ENV CHANGXIA_DB=/data/changxia.db
+ENV PORT=7788
+ENV HOST=0.0.0.0
+ENV NODE_ENV=production
+
+RUN mkdir -p /data && chmod 755 /data
+
+# 声明数据卷：容器重建不丢库（绿联 Docker 应用会映射到 NAS 的共享文件夹）
+VOLUME ["/data"]
+
+EXPOSE 7788
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||7788)+'/api/settings').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" || exit 1
+
+# 用 tsx 直接跑 TS 源码（与 npm run dev:server 同口径，免去编译步骤）。
+# 后端体量小、启动一次常驻，tsx 的启动开销可接受；后续如需极致可改 tsc 预编译。
+CMD ["node_modules/.bin/tsx", "server/index.ts"]

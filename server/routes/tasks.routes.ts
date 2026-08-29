@@ -12,10 +12,29 @@ interface TaskRow {
   title: string;
   done: number;
   assignee_id: string | null;
+  /** v0.3 参与人全集，JSON 数组串（SQLite 无数组类型） */
+  assignee_ids: string;
   due_date: string | null;
   order_index: number;
   revision: number;
   updated_at: string;
+}
+
+/** 反序列化：脏数据/空值一律回落 []，绝不因坏数据让整个查询 500 */
+function parseAssigneeIds(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 序列化：非数组一律回落 '[]' */
+function serializeAssigneeIds(ids: unknown): string {
+  if (!Array.isArray(ids)) return '[]';
+  return JSON.stringify(ids.filter((x): x is string => typeof x === 'string'));
 }
 
 function rowToTask(r: TaskRow): Record<string, unknown> {
@@ -26,6 +45,7 @@ function rowToTask(r: TaskRow): Record<string, unknown> {
     title: r.title,
     done: Boolean(r.done),
     assigneeId: r.assignee_id,
+    assigneeIds: parseAssigneeIds(r.assignee_ids),
     dueDate: r.due_date,
     orderIndex: r.order_index,
     revision: r.revision,
@@ -60,18 +80,22 @@ export function registerTaskRoutes(app: FastifyInstance, db: Database.Database):
     const { rows } = req.body as { rows: Array<Record<string, unknown>> };
     const insert = db.prepare(
       `INSERT INTO tasks
-        (id, project_id, stage_id, title, done, assignee_id, due_date, order_index, revision, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, project_id, stage_id, title, done, assignee_id, assignee_ids, due_date, order_index, revision, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const tx = db.transaction((list: Array<Record<string, unknown>>) => {
       for (const t of list) {
+        const ids = serializeAssigneeIds(t.assigneeIds);
+        const idsArr = parseAssigneeIds(ids);
         insert.run(
           String(t.id),
           String(t.projectId),
           String(t.stageId),
           String(t.title),
           t.done ? 1 : 0,
-          (t.assigneeId as string | null) ?? null,
+          // 主负责人兼容语义：与前端一致，assigneeId = assigneeIds[0] ?? null
+          (t.assigneeId as string | null) ?? idsArr[0] ?? null,
+          ids,
           (t.dueDate as string | null) ?? null,
           Number(t.orderIndex ?? 1),
           Number(t.revision ?? 1),
@@ -95,16 +119,19 @@ export function registerTaskRoutes(app: FastifyInstance, db: Database.Database):
     const maxRow = db
       .prepare('SELECT MAX(order_index) AS m FROM tasks WHERE stage_id = ?')
       .get(String(b.stageId)) as { m: number | null };
+    const ids = serializeAssigneeIds(b.assigneeIds);
+    const idsArr = parseAssigneeIds(ids);
     db.prepare(
       `INSERT INTO tasks
-        (id, project_id, stage_id, title, done, assignee_id, due_date, order_index, revision, updated_at)
-       VALUES (?, ?, ?, ?, 0, ?, ?, ?, 1, ?)`,
+        (id, project_id, stage_id, title, done, assignee_id, assignee_ids, due_date, order_index, revision, updated_at)
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 1, ?)`,
     ).run(
       id,
       String(b.projectId),
       String(b.stageId),
       title,
-      (b.assigneeId as string | null) ?? null,
+      (b.assigneeId as string | null) ?? idsArr[0] ?? null,
+      ids,
       (b.dueDate as string | null) ?? null,
       (maxRow.m ?? 0) + 1,
       nowIso(),
@@ -122,23 +149,33 @@ export function registerTaskRoutes(app: FastifyInstance, db: Database.Database):
       return { error: { code: 'not_found', userMessage: '任务不存在' } };
     }
     const b = (req.body ?? {}) as Record<string, unknown>;
+    // 参与人全集变更时，主负责人同步为 assigneeIds[0]（与前端 UI 保存语义一致）
+    const nextIds = b.assigneeIds !== undefined ? serializeAssigneeIds(b.assigneeIds) : existing.assignee_ids;
+    const nextAssigneeId =
+      b.assigneeId !== undefined
+        ? (b.assigneeId as string | null)
+        : b.assigneeIds !== undefined
+          ? parseAssigneeIds(nextIds)[0] ?? null
+          : existing.assignee_id;
     const merged: TaskRow = {
       ...existing,
       title: b.title !== undefined ? String(b.title) : existing.title,
       done: b.done !== undefined ? (b.done ? 1 : 0) : existing.done,
-      assignee_id: b.assigneeId !== undefined ? (b.assigneeId as string | null) : existing.assignee_id,
+      assignee_id: nextAssigneeId,
+      assignee_ids: nextIds,
       due_date: b.dueDate !== undefined ? (b.dueDate as string | null) : existing.due_date,
       order_index: b.orderIndex !== undefined ? Number(b.orderIndex) : existing.order_index,
       revision: existing.revision + 1,
       updated_at: nowIso(),
     };
     db.prepare(
-      `UPDATE tasks SET title=?, done=?, assignee_id=?, due_date=?, order_index=?,
+      `UPDATE tasks SET title=?, done=?, assignee_id=?, assignee_ids=?, due_date=?, order_index=?,
         revision=?, updated_at=? WHERE id=?`,
     ).run(
       merged.title,
       merged.done,
       merged.assignee_id,
+      merged.assignee_ids,
       merged.due_date,
       merged.order_index,
       merged.revision,

@@ -1,5 +1,11 @@
 # =====================================================================
 # ID Plan · docker-compose.yaml（UGOS PRO Docker 应用编排）
+#
+# 架构：前端（nginx 托管 dist）+ 后端（Fastify + SQLite）= 团队共享中心库
+#   - 数据源 remote 时，所有浏览器/客户端的数据都落在 NAS 的 changxia.db，
+#     工作室多人访问即自动共享，不再需要手动导入导出 JSON。
+#   - 数据源 local 时，后端容器仍会启动但无人调用（保留以便随时切换）。
+#
 # 说明：
 #  - 绿联升舱后，本文件会被 ugcli 放进 rootfs_common/docker-compose.yaml；
 #  - 变量 ${VITE_DATA_SOURCE} / ${VITE_API_BASE_URL} 与 project.yaml 的 parameters key 对应，
@@ -7,6 +13,7 @@
 #  - 内置变量 TZ 自动注入（无需声明）。
 # =====================================================================
 services:
+  # ---------------- 前端（nginx 静态托管 + /api 反代到后端） ----------------
   idplan:
     build:
       context: ..
@@ -23,6 +30,13 @@ services:
       # 运行时数据源切换入口（绿联移植接口）
       - VITE_DATA_SOURCE=${VITE_DATA_SOURCE:-local}
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-}
+    depends_on:
+      - backend
+    # network_mode: bridge 是绿联 Docker 应用的既有约束，但该模式下
+    # 没有 user-defined network 的服务名 DNS 解析，nginx 的 proxy_pass http://backend:7788
+    # 会解析失败。用 links 把 backend 写进本容器 hosts，保证反代可用。
+    links:
+      - backend:backend
     network_mode: bridge
     # 健康检查：Docker 套件通过容器端口探测判断启动成功
     healthcheck:
@@ -31,3 +45,45 @@ services:
       timeout: 3s
       start_period: 10s
       retries: 3
+
+  # ---------------- 后端（Fastify + better-sqlite3，团队共享数据层） ----------------
+  backend:
+    build:
+      context: ..
+      dockerfile: ugnas/Dockerfile.backend
+    image: docker.io/chengcheng/idplan-backend:0.1.0
+    container_name: idplan-backend
+    restart: always
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      # SQLite 单文件路径。卷 /data 持久化到 NAS 共享文件夹，容器重建不丢库。
+      - CHANGXIA_DB=/data/changxia.db
+      - PORT=7788
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+    # 数据持久化（关键）：不声明卷时容器重建即丢库，团队数据全没。
+    # 建议用户在绿联「应用配置」里把 /data 映射到 NAS 共享文件夹（如 /volume1/docker/idplan-data）。
+    volumes:
+      - idplan-data:/data
+    # 不对外暴露端口：只允许前端容器经内网访问，避免局域网直连绕过前端。
+    expose:
+      - "7788"
+    network_mode: bridge
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:7788/api/settings').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  # 具名卷：Docker 套件默认落在 NAS 的 docker 目录。
+  # 若用户希望数据落在自己可见的共享文件夹，可改为 bind mount：
+  #   - /volume1/docker/idplan-data:/data
+  idplan-data:

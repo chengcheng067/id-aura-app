@@ -9,6 +9,9 @@ interface StageRow {
   id: string;
   project_id: string;
   order_index: number;
+  /** v2 阶段自定义字段（与 entities.Stage 同构） */
+  template_key: string | null;
+  color_index: number | null;
   name: string;
   ratio_percent: number;
   start_at: string;
@@ -26,6 +29,8 @@ export function rowToStage(r: StageRow): Record<string, unknown> {
     id: r.id,
     projectId: r.project_id,
     orderIndex: r.order_index,
+    templateKey: r.template_key ?? null,
+    colorIndex: r.color_index ?? null,
     name: r.name,
     ratioPercent: r.ratio_percent,
     startAt: r.start_at,
@@ -67,9 +72,9 @@ export function registerStageRoutes(app: FastifyInstance, db: Database.Database)
     const { rows } = req.body as { rows: Array<Record<string, unknown>> };
     const insert = db.prepare(
       `INSERT INTO stages
-        (id, project_id, order_index, name, ratio_percent, start_at, end_at,
+        (id, project_id, order_index, template_key, color_index, name, ratio_percent, start_at, end_at,
          status, owner_id, visible, resource_path, revision, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const tx = db.transaction((list: Array<Record<string, unknown>>) => {
       for (const s of list) {
@@ -77,6 +82,8 @@ export function registerStageRoutes(app: FastifyInstance, db: Database.Database)
           String(s.id),
           String(s.projectId),
           Number(s.orderIndex),
+          (s.templateKey as string | null) ?? null,
+          s.colorIndex == null ? null : Number(s.colorIndex),
           String(s.name),
           Number(s.ratioPercent),
           String(s.startAt),
@@ -111,18 +118,26 @@ export function registerStageRoutes(app: FastifyInstance, db: Database.Database)
       visible: b.visible !== undefined ? (b.visible ? 1 : 0) : existing.visible,
       resource_path:
         b.resourcePath !== undefined ? (b.resourcePath as string | null) : existing.resource_path,
+      template_key:
+        b.templateKey !== undefined ? (b.templateKey as string | null) : existing.template_key,
+      color_index:
+        b.colorIndex !== undefined
+          ? (b.colorIndex as number | null)
+          : existing.color_index,
       revision: existing.revision + 1,
       updated_at: nowIso(),
     };
     db.prepare(
       `UPDATE stages SET name=?, ratio_percent=?, owner_id=?, visible=?, resource_path=?,
-        revision=?, updated_at=? WHERE id=?`,
+        template_key=?, color_index=?, revision=?, updated_at=? WHERE id=?`,
     ).run(
       merged.name,
       merged.ratio_percent,
       merged.owner_id,
       merged.visible,
       merged.resource_path,
+      merged.template_key,
+      merged.color_index,
       merged.revision,
       merged.updated_at,
       id,

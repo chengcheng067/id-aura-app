@@ -16,6 +16,10 @@ interface ProjectRow {
   planned_start_at: string;
   planned_end_at: string;
   cover_color: string | null;
+  /** v2 阶段自定义字段（与 entities.Project 同构） */
+  stage_preset_key: string | null;
+  stage_template_version: number;
+  schedule_basis: string;
   status: string;
   revision: number;
   updated_at: string;
@@ -34,6 +38,9 @@ export function rowToProject(r: ProjectRow): Record<string, unknown> {
     plannedStartAt: r.planned_start_at,
     plannedEndAt: r.planned_end_at,
     coverColor: r.cover_color,
+    stagePresetKey: r.stage_preset_key ?? null,
+    stageTemplateVersion: r.stage_template_version ?? 0,
+    scheduleBasis: r.schedule_basis ?? 'calendar',
     status: r.status,
     revision: r.revision,
     updatedAt: r.updated_at,
@@ -83,8 +90,10 @@ export function registerProjectRoutes(app: FastifyInstance, db: Database.Databas
     db.prepare(
       `INSERT INTO projects
         (id, name, type, address, client_name, contract_amount, signed_at,
-         planned_start_at, planned_end_at, cover_color, status, revision, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?)`,
+         planned_start_at, planned_end_at, cover_color,
+         stage_preset_key, stage_template_version, schedule_basis,
+         status, revision, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?)`,
     ).run(
       id,
       name,
@@ -96,6 +105,9 @@ export function registerProjectRoutes(app: FastifyInstance, db: Database.Databas
       String(body.plannedStartAt),
       String(body.plannedEndAt),
       (body.coverColor as string | null) ?? null,
+      (body.stagePresetKey as string | null) ?? null,
+      Number(body.stageTemplateVersion ?? 0),
+      String(body.scheduleBasis ?? 'calendar'),
       nowIso(),
     );
     const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRow;
@@ -121,13 +133,24 @@ export function registerProjectRoutes(app: FastifyInstance, db: Database.Databas
         b.contractAmount !== undefined ? (b.contractAmount as number | null) : existing.contract_amount,
       signed_at: b.signedAt !== undefined ? (b.signedAt as string | null) : existing.signed_at,
       cover_color: b.coverColor !== undefined ? (b.coverColor as string | null) : existing.cover_color,
+      stage_preset_key:
+        b.stagePresetKey !== undefined
+          ? (b.stagePresetKey as string | null)
+          : existing.stage_preset_key,
+      stage_template_version:
+        b.stageTemplateVersion !== undefined
+          ? Number(b.stageTemplateVersion)
+          : existing.stage_template_version,
+      schedule_basis:
+        b.scheduleBasis !== undefined ? String(b.scheduleBasis) : existing.schedule_basis,
       status: b.status !== undefined ? String(b.status) : existing.status,
       revision: existing.revision + 1,
       updated_at: nowIso(),
     };
     db.prepare(
       `UPDATE projects SET name=?, type=?, address=?, client_name=?, contract_amount=?,
-        signed_at=?, cover_color=?, status=?, revision=?, updated_at=? WHERE id=?`,
+        signed_at=?, cover_color=?, stage_preset_key=?, stage_template_version=?, schedule_basis=?,
+        status=?, revision=?, updated_at=? WHERE id=?`,
     ).run(
       merged.name,
       merged.type,
@@ -136,6 +159,9 @@ export function registerProjectRoutes(app: FastifyInstance, db: Database.Databas
       merged.contract_amount,
       merged.signed_at,
       merged.cover_color,
+      merged.stage_preset_key,
+      merged.stage_template_version,
+      merged.schedule_basis,
       merged.status,
       merged.revision,
       merged.updated_at,

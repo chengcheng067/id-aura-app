@@ -56,10 +56,10 @@ parameters:
     i18n:
       en-US:
         name: API Base URL
-        description: Required when data source is remote, e.g. http://<nas-ip>:28080/api
+        description: Required when data source is remote. Keep "/api" — nginx proxies it to the backend container (no NAS IP needed).
       zh-CN:
         name: 后端 API 地址
-        description: 仅 remote 数据源必填，如 http://<nas-ip>:28080/api
+        description: 仅 remote 数据源必填。保持 "/api" 即可——nginx 已反代到后端容器，无需填 NAS IP。
 
 # 合规与技术支持链接（使用开源代码时必须配置 license + source）
 privacy_policy_link:

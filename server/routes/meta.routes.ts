@@ -303,17 +303,49 @@ export function registerMetaRoutes(app: FastifyInstance, db: Database.Database):
   /** 各表布尔列清单：SQLite 存 0/1，DTO 需要 boolean（与本地 Dexie 导出形状一致） */
   const BOOLEAN_COLUMNS: Record<string, string[]> = {
     tasks: ['done'],
+    // stages.visible 在 SQLite 存 0/1，导出需还原为 boolean，
+    // 否则前端 zod（stageSchema.visible: z.boolean()）会拒绝整份备份。
+    stages: ['visible'],
     members: ['active'],
     contracts: ['created_by_manual'],
   };
 
-  /** snake_case 行 → camelCase DTO（key 下划线转驼峰；布尔列 0/1 转 boolean） */
+  /**
+   * 以 JSON 数组串存储的列（SQLite 无数组类型）。
+   * 导出时必须反序列化回真正的数组——否则前端 zod 期望 array 却收到 string，
+   * 备份导入会被整体拒绝（曾导致 NAS 导出的备份无法导回前端）。
+   */
+  const JSON_ARRAY_COLUMNS: Record<string, string[]> = {
+    tasks: ['assignee_ids'],
+  };
+
+  /** 反序列化 JSON 数组列；坏数据回落 []，绝不因单条脏数据让整次导出 500 */
+  function parseJsonArray(raw: unknown): string[] {
+    if (typeof raw !== 'string' || raw.length === 0) return [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed)
+        ? parsed.filter((x): x is string => typeof x === 'string')
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** snake_case 行 → camelCase DTO（key 下划线转驼峰；布尔列 0/1 转 boolean；JSON 数组列反序列化） */
   function rowToDto(table: string, o: Record<string, unknown>): Record<string, unknown> {
     const boolCols = BOOLEAN_COLUMNS[table] ?? [];
+    const jsonArrCols = JSON_ARRAY_COLUMNS[table] ?? [];
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(o)) {
       const camelKey = k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
-      out[camelKey] = boolCols.includes(k) ? Boolean(v) : v;
+      if (boolCols.includes(k)) {
+        out[camelKey] = Boolean(v);
+      } else if (jsonArrCols.includes(k)) {
+        out[camelKey] = parseJsonArray(v);
+      } else {
+        out[camelKey] = v;
+      }
     }
     return out;
   }
@@ -326,7 +358,9 @@ export function registerMetaRoutes(app: FastifyInstance, db: Database.Database):
   // GET /backup —— 全量导出（与前端 BackupPackage 形状一致，可直接过 zod 校验）
   app.get('/api/backup', async () => {
     return {
-      meta: { app: 'changxia', schemaVersion: 1, exportedAt: nowIso() },
+      // v2 = 含 stagePresetKey / templateKey / colorIndex / scheduleBasis / assigneeIds / roleKind，
+      // 与前端 BACKUP_SCHEMA_VERSION 对齐；标 1 会让前端走老版本归一路径（v2 字段被视作缺失）。
+      meta: { app: 'changxia', schemaVersion: 2, exportedAt: nowIso() },
       data: {
         projects: dumpTable('projects'),
         stages: dumpTable('stages'),
@@ -362,8 +396,18 @@ export function registerMetaRoutes(app: FastifyInstance, db: Database.Database):
     const snake = (o: Record<string, unknown>): Record<string, unknown> => {
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(o)) {
-        out[k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)] =
-          typeof v === 'boolean' ? (v ? 1 : 0) : v;
+        // 数组字段必须显式 JSON 序列化：SQLite 无数组类型，
+        // 直接 bind 数组会被隐式 join 成字符串（如 ['a'] → "a"），
+        // 读取端 JSON.parse 失败 → 静默丢数据（曾导致 task.assigneeIds 导入后变 []）。
+        // 这里统一处理，覆盖 assigneeIds 及未来任何数组字段。
+        const val = Array.isArray(v)
+          ? JSON.stringify(v)
+          : typeof v === 'boolean'
+            ? v
+              ? 1
+              : 0
+            : v;
+        out[k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)] = val;
       }
       return out;
     };

@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS projects (
   planned_start_at TEXT NOT NULL,
   planned_end_at TEXT NOT NULL,
   cover_color TEXT,
+  -- v2 阶段自定义字段（与 backup schemaVersion=2 / entities.Project 同构）
+  stage_preset_key TEXT,
+  stage_template_version INTEGER NOT NULL DEFAULT 0,
+  schedule_basis TEXT NOT NULL DEFAULT 'calendar',
   status TEXT NOT NULL DEFAULT 'active',
   revision INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
@@ -20,7 +24,12 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS stages (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(id),
-  order_index INTEGER NOT NULL CHECK (order_index BETWEEN 1 AND 9),
+  -- v2：阶段自定义字段（键序与 entities.Stage / stageSchema 一致：order_index 之后、name 之前）
+  -- CHECK 上限由 9 放宽到 99：前端备份 schema（backup.service.stageSchema）已放宽到 1..99，
+  -- 自定义阶段组合（MAX_STAGE_COUNT=12）与老项目迁移场景需要 >9 的序号。
+  order_index INTEGER NOT NULL CHECK (order_index BETWEEN 1 AND 99),
+  template_key TEXT,
+  color_index INTEGER,
   name TEXT NOT NULL,
   ratio_percent REAL NOT NULL,
   start_at TEXT NOT NULL,
@@ -41,6 +50,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT NOT NULL,
   done INTEGER NOT NULL DEFAULT 0,
   assignee_id TEXT,
+  -- v0.3 参与人全集：JSON 数组串（SQLite 无数组类型），与 entities.Task.assigneeIds 对应。
+  -- 读取时反序列化为 string[]；写入前序列化。缺失/空 → '[]'。
+  assignee_ids TEXT NOT NULL DEFAULT '[]',
   due_date TEXT,
   order_index INTEGER NOT NULL DEFAULT 1,
   revision INTEGER NOT NULL DEFAULT 1,
@@ -56,6 +68,8 @@ CREATE TABLE IF NOT EXISTS members (
   contact TEXT,
   avatar_color TEXT NOT NULL DEFAULT '#3D6B5B',
   active INTEGER NOT NULL DEFAULT 1,
+  -- v0.2 角色种类：'admin' | 'member'，与 entities.Member.roleKind 对应。
+  role_kind TEXT NOT NULL DEFAULT 'member',
   revision INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
 );

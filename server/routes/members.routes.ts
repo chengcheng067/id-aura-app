@@ -12,6 +12,8 @@ interface MemberRow {
   contact: string | null;
   avatar_color: string;
   active: number;
+  /** v0.2 角色种类：'admin' | 'member' */
+  role_kind: string;
   revision: number;
   updated_at: string;
 }
@@ -24,6 +26,8 @@ function rowToMember(r: MemberRow): Record<string, unknown> {
     contact: r.contact,
     avatarColor: r.avatar_color,
     active: Boolean(r.active),
+    // 与前端 memberSchema 一致：非法/缺失一律归一 'member'，保证导入后运行时不为 undefined
+    roleKind: r.role_kind === 'admin' ? 'admin' : 'member',
     revision: r.revision,
     updatedAt: r.updated_at,
   };
@@ -61,14 +65,15 @@ export function registerMemberRoutes(app: FastifyInstance, db: Database.Database
     }
     const id = crypto.randomUUID();
     db.prepare(
-      `INSERT INTO members (id, name, role, contact, avatar_color, active, revision, updated_at)
-       VALUES (?, ?, ?, ?, ?, 1, 1, ?)`,
+      `INSERT INTO members (id, name, role, contact, avatar_color, active, role_kind, revision, updated_at)
+       VALUES (?, ?, ?, ?, ?, 1, ?, 1, ?)`,
     ).run(
       id,
       name,
       String(b.role ?? ''),
       (b.contact as string | null) ?? null,
       String(b.avatarColor ?? '#3D6B5B'),
+      b.roleKind === 'admin' ? 'admin' : 'member',
       nowIso(),
     );
     const row = db.prepare('SELECT * FROM members WHERE id = ?').get(id) as MemberRow;
@@ -91,17 +96,19 @@ export function registerMemberRoutes(app: FastifyInstance, db: Database.Database
       contact: b.contact !== undefined ? (b.contact as string | null) : existing.contact,
       avatar_color: b.avatarColor !== undefined ? String(b.avatarColor) : existing.avatar_color,
       active: b.active !== undefined ? (b.active ? 1 : 0) : existing.active,
+      role_kind: b.roleKind !== undefined ? String(b.roleKind) : existing.role_kind,
       revision: existing.revision + 1,
       updated_at: nowIso(),
     };
     db.prepare(
-      'UPDATE members SET name=?, role=?, contact=?, avatar_color=?, active=?, revision=?, updated_at=? WHERE id=?',
+      'UPDATE members SET name=?, role=?, contact=?, avatar_color=?, active=?, role_kind=?, revision=?, updated_at=? WHERE id=?',
     ).run(
       merged.name,
       merged.role,
       merged.contact,
       merged.avatar_color,
       merged.active,
+      merged.role_kind,
       merged.revision,
       merged.updated_at,
       id,

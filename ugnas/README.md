@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 当前方案（先 Docker，后期再移植）
+## 1. 当前方案：Docker 应用 · 前端 + 后端（团队共享中心库）
 
 UGOS Pro 应用分两类：
 
@@ -14,9 +14,39 @@ UGOS Pro 应用分两类：
 | **原生应用** | 仅 Go / C++ 等编译型语言 | 轻量单进程 |
 | **Docker 应用** | 任意（镜像内自带运行时） | **本方案**，ID Plan 目前走这条 |
 
-ID Plan 是纯前端 SPA（React + Vite + Dexie 离线存储、无后端），因此 Docker 镜像只需做一件事：**用 nginx 托管 `dist/` 静态产物** + 运行时注入数据源配置。
+### 为什么是「Docker + 带后端」，而不是「原生应用」或「纯前端 Docker」
 
-> 后期如需上原生应用：把 nginx 换成一个 Go 静态服务器壳（或心跳服务顶端口），`start_cmd: bin/idplan_serv --port=28080`，`is_docker_app: false`。前端零改动，接口已预留。
+| 方案 | 判断 | 原因 |
+|---|---|---|
+| 绿联**原生应用** + 后端 | ❌ 不采用 | 原生应用后端**只支持 Go/C++ 编译型**，而 ID Plan 后端是 Node（Fastify + better-sqlite3）。走原生需把整个后端用 Go 重写，成本高、无收益。 |
+| **纯前端 Docker**（无后端） | ❌ 不满足目标 | 数据落在各自浏览器 IndexedDB，**团队无法共享**，仍需手动导入导出 JSON——正是要解决的问题。 |
+| **Docker + 带后端** | ✅ **采用** | Docker 可跑任意运行时，直接复用已完成的 Node 后端（业务端点齐全），只补编排层即可。 |
+
+> 后端 `server/`（Fastify + better-sqlite3 WAL）**功能已完整**：覆盖 projects / stages / tasks / members / contracts / settings + backup / bootstrap / reschedule / bulk / logs 全部端点，前端 `remote` 适配器（`rest.client.ts`）已就绪。本方案只需补「编排 + 持久化 + 反代」。
+
+### 架构
+
+```
+浏览器 / 客户端
+      │  http://<nas-ip>:28080
+      ▼
+┌─────────────────────────────────────┐
+│ 容器 idplan（nginx）                 │
+│  · 托管 dist/ 静态产物               │
+│  · /api/* ──反代──┐                 │
+└──────────────────┼──────────────────┘
+                   ▼
+        ┌──────────────────────────┐
+        │ 容器 idplan-backend       │
+        │  Fastify + SQLite(WAL)   │
+        │  /data/changxia.db ── 卷  │ ← 持久化到 NAS，容器重建不丢
+        └──────────────────────────┘
+```
+
+- **同源 `/api`**：浏览器只访问前端端口，由 nginx 反代到后端，**无跨域问题**，`VITE_API_BASE_URL` 保持 `/api` 即可，无需填 NAS IP。
+- **数据集中**：remote 模式下所有人的数据都落在 NAS 的 `changxia.db`，**团队自动共享**，不再手动导 JSON。
+
+> 后期如需上原生应用：需先用 Go 重写后端（不建议，见上表）。当前 `is_docker_app: true`。
 
 ---
 
@@ -24,16 +54,17 @@ ID Plan 是纯前端 SPA（React + Vite + Dexie 离线存储、无后端），�
 
 ```
 ugnas/
-├── Dockerfile                 # 多阶段：node 构建 dist → nginx 托管 + 注入配置
+├── Dockerfile                 # 前端：node 构建 dist → nginx 托管 + 注入配置
+├── Dockerfile.backend         # 后端：node:20-slim 跑 Fastify + better-sqlite3（含编译工具链）
 ├── project.yaml               # UGOS 应用配置（ugcli pack 使用）
-├── docker-compose.yaml        # UGOS Docker 编排（rootfs_common 用）
+├── docker-compose.yaml        # UGOS Docker 编排：idplan(前端) + backend(后端) + 数据卷
 ├── .dockerignore              # 构建上下文忽略
 ├── nginx/
-│   ├── nginx.conf             # SPA 回退 + /env-config.js + /api 代理占位
+│   ├── nginx.conf             # SPA 回退 + /env-config.js + /api 反代到 backend:7788
 │   └── env-config.template.js # 运行时配置模板（entrypoint 渲染）
 └── scripts/
     ├── entrypoint.sh          # 容器启动：渲染 window.__APP_ENV__ 写回 env-config.js
-    └── pack.sh                # 一键打包：build dist → 导镜像 → ugcli pack
+    └── pack.sh                # 一键打包：前端/后端镜像(amd64+arm64) → 导 tar → ugcli pack
 ```
 
 ---
@@ -53,29 +84,78 @@ ugnas/
 
 ```bash
 # 容器环境变量（docker-compose 或 UGOS 应用中心应用配置里填）
-VITE_DATA_SOURCE=local    # local 或 remote
-VITE_API_BASE_URL=        # remote 时必填，如 http://<nas-ip>:28080/api
+VITE_DATA_SOURCE=local    # local = 浏览器 IndexedDB（离线单机）；remote = NAS 后端（团队共享）
+# remote 时必填。保持 "/api" 即可——nginx 已反代到后端容器，无需 NAS IP：
+VITE_API_BASE_URL=/api
 ```
 
 > 数据层已具备 `createRepositories({ dataSource, apiBaseUrl })` 的 local(Dexie)/remote(REST) 双适配器，`apiBaseUrl` 即上述 `VITE_API_BASE_URL`，天然承接收口。
 
 ---
 
-## 4. 本地 Docker 自测（需 Docker）
+## 4. 在 NAS 上实测（绿联 Docker 套件 / 任意 Docker 主机）
+
+> 这是团队共享模式的完整验证流程。**后端必须和数据卷一起跑**，否则容器重建即丢库。
+
+### 4.1 一键起全套（前端 + 后端 + 数据卷）
 
 ```bash
 cd changxia/ugnas
 
-# 1. 构建镜像
+# 构建并后台启动（remote = 团队共享模式，数据落 NAS）
+VITE_DATA_SOURCE=remote VITE_API_BASE_URL=/api docker compose up -d --build
+
+# 查看状态（两个容器都应 healthy）
+docker compose ps
+
+# 看后端日志（确认 SQLite 已就绪）
+docker compose logs -f backend
+```
+
+### 4.2 验证后端联通
+
+```bash
+# 经 nginx 反代访问（浏览器同源路径）
+curl http://<nas-ip>:28080/api/projects
+curl http://<nas-ip>:28080/api/members
+
+# 预期：返回 []（空库）或已有数据，说明反代 + 后端都通了
+```
+
+### 4.3 验证数据持久化（关键）
+
+```bash
+# 1) 在页面上建一个项目，或导入演示备份
+# 2) 重启容器
+docker compose down && docker compose up -d
+
+# 3) 再查一次，数据应仍在
+curl http://<nas-ip>:28080/api/projects
+#    数据还在 = 卷持久化生效；数据没了 = 卷没挂对，检查 volumes 配置
+```
+
+### 4.4 切回本地单机模式
+
+```bash
+VITE_DATA_SOURCE=local docker compose up -d
+# 此时前端读浏览器 IndexedDB，后端虽在跑但无人调用
+```
+
+### 4.5 浏览器打开
+
+```
+http://<nas-ip>:28080
+```
+
+控制台验证：`window.__APP_ENV__` 应为 `{ VITE_DATA_SOURCE: "remote", VITE_API_BASE_URL: "/api" }`。
+
+### 4.6 仅前端单容器（不带后端，快速验证静态站）
+
+```bash
+cd changxia/ugnas
 docker build -f Dockerfile -t idplan:local .
-
-# 2. 本地起容器（数据源默认 local）
-docker run --rm -p 28080:80 \
-  -e VITE_DATA_SOURCE=local \
-  idplan:local
-
-# 3. 浏览器打开 http://localhost:28080
-#    验证：控制台 window.__APP_ENV__ 应为 {VITE_DATA_SOURCE:"local",VITE_API_BASE_URL:""}
+docker run --rm -p 28080:80 -e VITE_DATA_SOURCE=local idplan:local
+# 浏览器打开 http://localhost:28080（此模式无 /api，仅供静态站自检）
 ```
 
 > 本机若无 Docker，可直接 `npm run build` 后 `npm run preview` 验证前端（env-config 注入已在 index.html 内置，逻辑一致）。
