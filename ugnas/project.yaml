@@ -15,9 +15,10 @@ support_arch:
   - amd64
   - arm64
 
-# 客户端类型：设计工具以桌面为主
+# 客户端类型：pc=桌面端，app=移动端（inner 模式下移动端可内嵌打开；适配手机见前端响应式）
 supports:
   - pc
+  - app
 
 # Docker 应用开关（绿联 Docker 应用开发方式）——便于后期改用原生应用时切换
 is_docker_app: true
@@ -28,9 +29,12 @@ depend_fw_version: 1.13.0.0000
 
 # 对外监听端口：系统网关转发到容器 80（port 填宿主机端口，与 compose 的 28080:80 对应）
 port: 28080
-# 打开方式：tab = 浏览器新标签页直接以 NAS_IP:28080 访问（免登录应用风险最低，
-# 官方 Docker 应用示例也用 tab；inner 需要额外配置 proxy_path + JSSDK 登录态）
-open_type: tab
+# 打开方式：inner = 在 UGOS Pro 桌面窗口内打开（支持移动端内嵌、后续可扩展 JSSDK）；
+#           inner 必须配置 proxy_path，网关把应用挂载到 http://NAS-IP:28080/<proxy_path>/，
+#           不剥前缀 → 前端 Vite base + nginx 前缀路由 + /api 反代都需对齐（见 ugnas/nginx/nginx.conf）。
+open_type: inner
+# inner 专用：网关转发的前缀路径，同时需与 Vite base（'/idplan/'）和 nginx location 一致
+proxy_path: idplan
 
 # 应用类别
 tag_types:

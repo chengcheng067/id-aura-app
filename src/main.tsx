@@ -23,21 +23,30 @@ import { CalendarPrintPage } from './pages/CalendarPrintPage';
  *   /project/:id/schedule-print 日程表打印视图（v0.3 变更 E；页内 isAdmin 守卫，复用 stores 零新查询）
  *   /project/:id/calendar-print 月历打印/导出视图（v0.5）
  *   /my-tasks                  我的任务（成员视角）
+ *
+ * 底座：绿联 inner 模式下应用挂载在 /<proxy_path>/ 下（网关只转发该前缀，不剥前缀），
+ * 故 createBrowserRouter 需带 basename；base 用 import.meta.env.BASE_URL（tab=/, inner=/idplan/），
+ * render 前 strip 尾部斜杠避免 react-router 解析歧义。
  */
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      element: <AppShell />,
+      children: [
+        { index: true, element: <HomeRouteGuard /> },
+        { path: 'project/:id', element: <ProjectDetailPage /> },
+        { path: 'project/:id/schedule-print', element: <SchedulePrintPage /> },
+        { path: 'project/:id/calendar-print', element: <CalendarPrintPage /> },
+        { path: 'my-tasks', element: <MyTasksPage /> },
+        { path: '*', element: <Navigate to="/" replace /> },
+      ] satisfies RouteObject[],
+    },
+  ],
   {
-    path: '/',
-    element: <AppShell />,
-    children: [
-      { index: true, element: <HomeRouteGuard /> },
-      { path: 'project/:id', element: <ProjectDetailPage /> },
-      { path: 'project/:id/schedule-print', element: <SchedulePrintPage /> },
-      { path: 'project/:id/calendar-print', element: <CalendarPrintPage /> },
-      { path: 'my-tasks', element: <MyTasksPage /> },
-      { path: '*', element: <Navigate to="/" replace /> },
-    ] satisfies RouteObject[],
+    basename: (import.meta.env.BASE_URL || '/').replace(/\/+$/, ''),
   },
-]);
+);
 
 /**
  * 应用装配点：

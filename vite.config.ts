@@ -13,6 +13,10 @@ import { defineConfig } from 'vite';
  */
 export default defineConfig({
   plugins: [react()],
+  // base：绿联 UGOS inner 模式下应用挂载在 /<proxy_path>/ 下（project.yaml 的 proxy_path），
+  // 网关不剥前缀，因此 Vite 产物的资源引用必须以该前缀开头，否则 inner 窗口内资源 404。
+  // 产物文件仍落在 outDir 根下（base 只改 URL 引用，不影响文件系统布局，nginx 用 rewrite 扒前缀）。
+  base: '/idplan/',
   build: {
     target: 'es2020',
     // 沙箱环境的安全删除 shim(genie-trash) 会在 emptyOutDir 时 ETIMEDOUT,
