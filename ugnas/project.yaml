@@ -10,7 +10,7 @@
 # =====================================================================
 spec_version: "2.1"
 app_id: com.chengcheng.idplan
-version: 0.1.0
+version: 0.3.0
 support_arch:
   - amd64
   - arm64
@@ -26,10 +26,11 @@ depend_docker_version: 1.7.0.0000
 # 最低固件版本（声明白依赖时必填；版本号请联系绿联开发确认）
 depend_fw_version: 1.13.0.0000
 
-# 对外监听端口：系统网关转发到容器 80
+# 对外监听端口：系统网关转发到容器 80（port 填宿主机端口，与 compose 的 28080:80 对应）
 port: 28080
-# 打开方式：inner = 系统桌面内独立窗口；tab = 浏览器新标签页
-open_type: inner
+# 打开方式：tab = 浏览器新标签页直接以 NAS_IP:28080 访问（免登录应用风险最低，
+# 官方 Docker 应用示例也用 tab；inner 需要额外配置 proxy_path + JSSDK 登录态）
+open_type: tab
 
 # 应用类别
 tag_types:

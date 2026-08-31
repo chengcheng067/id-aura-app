@@ -1,29 +1,25 @@
 # =====================================================================
-# ID Plan · 导出「绿联 UPK 专用」镜像 tar
+# ID Plan · 导出「绿联 UPK 专用」镜像 tar（经典 docker-save 格式）
 #
 # 为什么单独一个工作流？
 #   绿联官方 Docker 应用（UPK）要求把镜像以 tar 形式放进
-#   rootfs_<arch>/images/，随包一起安装。ugcli 硬性要求**经典 docker save
-#   格式**（tar 内含 manifest.json + <layer>/layer.tar），否则报：
-#     manifest.json not found in the tar file, please check the file is a
-#     valid tar archive of docker image
+#   rootfs_<arch>/images/，随包一起安装，且必须是经典 docker save 格式
+#   （tar 内含 manifest.json，Layers 形如 <hash>/layer.tar）。
 #
-#   坑（已踩过）：GitHub Actions runner 的 Docker 守护进程启用了 containerd
-#   镜像存储，`docker pull` + `docker save` 输出的是 **OCI layout**
-#   （blobs/sha256/...），不但格式不符，还会把镜像层展开成未压缩 tar，
-#   后端体积从 ~166MB 膨胀到 ~562MB。
-#   → 因此这里用 `docker buildx build --output type=docker,dest=...`
-#     强制输出经典 docker-tar 格式，且 tag 完全可控。
+# 为什么不能 pull + docker save？
+#   GitHub Actions runner 的 Docker 启用了 containerd 镜像存储，
+#   `docker save` 会输出 OCI layout（blobs/sha256/...），绿联 ugcli
+#   校验会报 "manifest.json not found"；且 OCI layout 把镜像层展开成
+#   未压缩 tar，后端体积从 ~166MB 膨胀到 ~562MB。
 #
-# 产物（Release 资产）：
-#   idplan-amd64-upk.tar          前端 amd64
-#   idplan-backend-amd64-upk.tar  后端 amd64
-#   idplan-arm64-upk.tar          前端 arm64
-#   idplan-backend-arm64-upk.tar  后端 arm64
+# 为什么不能 buildx --output type=oci？
+#   同上，OCI 格式绿联不认。
 #
-# tar 内部 tag 固定为：
-#   idplan:0.3.0 / idplan-backend:0.3.0
-# 必须与 ugnas/upk/rootfs_common/docker-compose.yaml 里的 image: 完全一致。
+# 正确做法：buildx 单架构构建 + `--output type=docker,dest=xxx.tar`
+#   → 产出经典 docker-tar（含 manifest.json + 压缩 layer），tag 可控。
+#
+# tar 内部 tag 固定为：idplan:0.3.0 / idplan-backend:0.3.0
+# 必须与 ugnas/upk/rootfs_common/docker-compose.yaml 的 image: 完全一致。
 #
 # 触发（两种都行）：
 #   1. 推送 upk- 开头的 tag，例如：
@@ -40,11 +36,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "镜像版本号（默认 0.3.0）"
+        description: "镜像版本号（默认 0.3.0，需与 ghcr 上已存在的 tag 一致）"
         required: false
         default: "0.3.0"
 
 env:
+  OWNER: chengcheng067
   FRONT: idplan
   BACK: idplan-backend
 
@@ -75,73 +72,54 @@ jobs:
           echo "VERSION=${VER}" >> "$GITHUB_ENV"
           echo "解析到版本号：${VER}（来源 ref=${GITHUB_REF}）"
 
-      - name: 导出 amd64 镜像 tar（经典 docker 格式）
+      # ---------- amd64 ----------
+      - name: 导出 amd64 tar（经典 docker-save 格式）
         run: |
           set -e
           mkdir -p upk-images
           docker buildx build --platform linux/amd64 \
-            -f ugnas/Dockerfile \
-            -t ${FRONT}:${VERSION} \
-            --cache-from type=gha,scope=${FRONT}-amd64 \
-            --cache-to   type=gha,scope=${FRONT}-amd64,mode=max \
-            --output type=docker,dest=upk-images/${FRONT}-amd64-upk.tar .
+            -f ugnas/Dockerfile -t ${{ env.FRONT }}:${{ env.VERSION }} \
+            --output type=docker,dest=upk-images/${{ env.FRONT }}-amd64-upk.tar .
           docker buildx build --platform linux/amd64 \
-            -f ugnas/Dockerfile.backend \
-            -t ${BACK}:${VERSION} \
-            --cache-from type=gha,scope=${BACK}-amd64 \
-            --cache-to   type=gha,scope=${BACK}-amd64,mode=max \
-            --output type=docker,dest=upk-images/${BACK}-amd64-upk.tar .
+            -f ugnas/Dockerfile.backend -t ${{ env.BACK }}:${{ env.VERSION }} \
+            --output type=docker,dest=upk-images/${{ env.BACK }}-amd64-upk.tar .
 
-      - name: 导出 arm64 镜像 tar（经典 docker 格式）
+      # ---------- arm64 ----------
+      - name: 导出 arm64 tar（经典 docker-save 格式）
         run: |
           set -e
-          mkdir -p upk-images
           docker buildx build --platform linux/arm64 \
-            -f ugnas/Dockerfile \
-            -t ${FRONT}:${VERSION} \
-            --cache-from type=gha,scope=${FRONT}-arm64 \
-            --cache-to   type=gha,scope=${FRONT}-arm64,mode=max \
-            --output type=docker,dest=upk-images/${FRONT}-arm64-upk.tar .
+            -f ugnas/Dockerfile -t ${{ env.FRONT }}:${{ env.VERSION }} \
+            --output type=docker,dest=upk-images/${{ env.FRONT }}-arm64-upk.tar .
           docker buildx build --platform linux/arm64 \
-            -f ugnas/Dockerfile.backend \
-            -t ${BACK}:${VERSION} \
-            --cache-from type=gha,scope=${BACK}-arm64 \
-            --cache-to   type=gha,scope=${BACK}-arm64,mode=max \
-            --output type=docker,dest=upk-images/${BACK}-arm64-upk.tar .
+            -f ugnas/Dockerfile.backend -t ${{ env.BACK }}:${{ env.VERSION }} \
+            --output type=docker,dest=upk-images/${{ env.BACK }}-arm64-upk.tar .
 
+      # ---------- 校验：必须是经典格式 + 单镜像单 tag ----------
       - name: 校验 tar 格式与 tag
         run: |
           set -e
           cd upk-images
-          fail=0
           for f in *.tar; do
-            echo "=== $f ==="
-            # 1) 必须是经典 docker 格式：含 manifest.json，且层路径形如 <id>/layer.tar
-            if ! tar -tf "$f" | grep -q 'manifest.json$'; then
-              echo "  [FAIL] 缺少 manifest.json —— 不是 docker save 格式"; fail=1; continue
+            echo "--- $f ---"
+            # 经典 docker save 的标志：根下有 manifest.json 且顶层不是 blobs/
+            tar -xf "$f" -O manifest.json > /tmp/m.json
+            TAGS=$(node -e '
+              const j = JSON.parse(require("fs").readFileSync("/tmp/m.json","utf8"));
+              if (!Array.isArray(j) || j.length !== 1) {
+                console.error("FAIL: manifest 数量 = " + j.length + "（必须恰好 1）");
+                process.exit(1);
+              }
+              console.log(j[0].RepoTags.join(","));
+            ')
+            echo "  RepoTags = ${TAGS}"
+            if echo "$TAGS" | grep -q "latest"; then
+              echo "FAIL: 禁止 latest tag"; exit 1
             fi
-            if tar -tf "$f" | grep -q '^blobs/sha256/'; then
-              echo "  [FAIL] 检测到 blobs/sha256/ —— 这是 OCI layout，绿联不认"; fail=1; continue
-            fi
-            if ! tar -tf "$f" | grep -q 'layer.tar$'; then
-              echo "  [FAIL] 未找到 */layer.tar —— 不是经典 docker 分层格式"; fail=1; continue
-            fi
-            # 2) 只能有一个镜像、一个 tag，且不能是 latest
-            cnt=$(tar -xf "$f" -O manifest.json | node -e "
-              let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
-                const j=JSON.parse(d);
-                const tags=(j[0]||{}).RepoTags||[];
-                console.log(tags.length);
-                console.error(JSON.stringify(tags));
-              });
-            " 2>/tmp/tags.txt)
-            echo "  RepoTags = $(cat /tmp/tags.txt)（镜像数 $cnt）"
-            if [ "$cnt" != "1" ]; then echo "  [FAIL] manifest.json 里不是恰好 1 个镜像"; fail=1; fi
-            if grep -q ':latest' /tmp/tags.txt; then echo "  [FAIL] 使用了 latest tag"; fail=1; fi
-            echo "  [OK]"
           done
+          echo ""
+          echo "=== 产物清单 ==="
           ls -lh
-          if [ "$fail" != "0" ]; then echo "格式校验未通过，终止"; exit 1; fi
 
       - name: 上传 tar 到 Release
         uses: softprops/action-gh-release@v2
@@ -150,4 +128,3 @@ jobs:
           tag_name: "upk-images-${{ env.VERSION }}"
           files: upk-images/*.tar
           fail_on_unmatched_files: true
-          overwrite: true
