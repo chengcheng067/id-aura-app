@@ -1,0 +1,84 @@
+# =====================================================================
+# ID Plan · docker-compose.yaml（UGOS PRO Docker 应用编排）
+#
+# 架构：前端（nginx 托管 dist）+ 后端（Fastify + SQLite）= 团队共享中心库
+#   - 数据源 remote 时，所有浏览器/客户端的数据都落在 NAS 的 changxia.db，
+#     工作室多人访问即自动共享，不再需要手动导入导出 JSON。
+#   - 数据源 local 时，后端容器仍会启动但无人调用（保留以便随时切换）。
+#
+# 说明（绿联官方 Docker 应用规范）：
+#  - 本文件会被放入 rootfs_common/docker-compose.yaml，随 UPK 一起安装；
+#  - 不能写 build: —— NAS 上没有构建上下文，镜像必须来自 rootfs_<arch>/images/
+#    里预打包的 tar，image 名必须与 tar 内 tag 完全一致；
+#  - 变量写纯 ${VAR}（不用 ${VAR:-默认}），默认值在容器入口脚本兜底；
+#    每个 ${VAR} 都必须在 project.yaml 的 parameters 里声明（TZ 除外，内置）；
+#  - 不用 latest tag；不使用 privileged / cap_add / host 网络。
+# =====================================================================
+services:
+  # ---------------- 前端（nginx 静态托管 + /api 反代到后端） ----------------
+  idplan:
+    image: idplan:0.3.0
+    container_name: idplan
+    restart: always
+    ports:
+      # 宿主/系统网关转发到容器 80；绿联 project.yaml 的 port 指宿主机端口
+      - "28080:80"
+    environment:
+      - UMASK=022
+      - TZ=${TZ}
+      # 运行时数据源切换入口（绿联移植接口）；空值由入口脚本兜默认 local
+      - VITE_DATA_SOURCE=${VITE_DATA_SOURCE}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+    depends_on:
+      - backend
+    # network_mode: bridge 是绿联 Docker 应用的既有约束，但该模式下
+    # 没有 user-defined network 的服务名 DNS 解析，nginx 的 proxy_pass http://backend:7788
+    # 会解析失败。用 links 把 backend 写进本容器 hosts，保证反代可用。
+    links:
+      - backend:backend
+    network_mode: bridge
+    # 健康检查：Docker 套件通过容器端口探测判断启动成功
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  # ---------------- 后端（Fastify + better-sqlite3，团队共享数据层） ----------------
+  backend:
+    image: idplan-backend:0.3.0
+    container_name: idplan-backend
+    restart: always
+    environment:
+      - TZ=${TZ}
+      # SQLite 单文件路径。卷 /data 持久化到 NAS 共享文件夹，容器重建不丢库。
+      - CHANGXIA_DB=/data/changxia.db
+      - PORT=7788
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+    # 数据持久化（关键）：不声明卷时容器重建即丢库，团队数据全没。
+    volumes:
+      - idplan-data:/data
+    # 不对外暴露端口：只允许前端容器经内网访问，避免局域网直连绕过前端。
+    expose:
+      - "7788"
+    network_mode: bridge
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:7788/api/settings').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  # 具名卷：Docker 套件默认落在 NAS 的 docker 目录。
+  # 升级应用（重建容器）不会丢数据；若需手动备份，可在 NAS 的
+  # Docker 套件 → 存储空间里找到该卷对应目录拷走 changxia.db。
+  idplan-data:
