@@ -3,15 +3,17 @@
 #
 # 为什么单独一个工作流？
 #   绿联官方 Docker 应用（UPK）要求把镜像以 tar 形式放进
-#   rootfs_<arch>/images/，随包一起安装。官方要求用 `docker save` 导出
-#   （Docker 格式：含 manifest.json + repositories），而原有的
-#   docker-build.yml 导出的是 buildx 的 OCI 格式（含 oci-layout +
-#   index.json），绿联不一定认。这里改成 pull → tag → docker save，
-#   格式和 tag 都可控。
+#   rootfs_<arch>/images/，随包一起安装。ugcli 硬性要求**经典 docker save
+#   格式**（tar 内含 manifest.json + <layer>/layer.tar），否则报：
+#     manifest.json not found in the tar file, please check the file is a
+#     valid tar archive of docker image
 #
-# 为什么是 pull 而不是重新 build？
-#   镜像已经在 docker-build.yml 里构建并推送到 ghcr 了（多架构 manifest
-#   list），直接按架构拉取再另存，速度快得多，且内容与已验证的一致。
+#   坑（已踩过）：GitHub Actions runner 的 Docker 守护进程启用了 containerd
+#   镜像存储，`docker pull` + `docker save` 输出的是 **OCI layout**
+#   （blobs/sha256/...），不但格式不符，还会把镜像层展开成未压缩 tar，
+#   后端体积从 ~166MB 膨胀到 ~562MB。
+#   → 因此这里用 `docker buildx build --output type=docker,dest=...`
+#     强制输出经典 docker-tar 格式，且 tag 完全可控。
 #
 # 产物（Release 资产）：
 #   idplan-amd64-upk.tar          前端 amd64
@@ -25,7 +27,7 @@
 #
 # 触发（两种都行）：
 #   1. 推送 upk- 开头的 tag，例如：
-#        git tag upk-0.3.0-1 && git push origin upk-0.3.0-1
+#        git tag upk-0.3.0-2 && git push origin upk-0.3.0-2
 #      版本号从 tag 名里解析（upk-<版本>-<序号> → <版本>）
 #   2. 在 GitHub → Actions → upk-images → Run workflow 手动点
 # =====================================================================
@@ -38,13 +40,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "镜像版本号（默认 0.3.0，需与 ghcr 上已存在的 tag 一致）"
+        description: "镜像版本号（默认 0.3.0）"
         required: false
         default: "0.3.0"
 
 env:
-  REGISTRY: ghcr.io
-  OWNER: chengcheng067
   FRONT: idplan
   BACK: idplan-backend
 
@@ -56,17 +56,16 @@ jobs:
       packages: read
 
     steps:
-      - name: 登录 ghcr
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: 确定版本号
         run: |
           VER="${{ github.event.inputs.version }}"
-          # 从 tag 解析：upk-0.3.0-1 → 0.3.0
+          # 从 tag 解析：upk-0.3.0-2 → 0.3.0
           if [ -z "$VER" ] && [[ "${GITHUB_REF}" == refs/tags/upk-* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
             REST="${TAG#upk-}"
@@ -76,48 +75,73 @@ jobs:
           echo "VERSION=${VER}" >> "$GITHUB_ENV"
           echo "解析到版本号：${VER}（来源 ref=${GITHUB_REF}）"
 
-      - name: 导出 amd64 镜像 tar
+      - name: 导出 amd64 镜像 tar（经典 docker 格式）
         run: |
           set -e
           mkdir -p upk-images
-          for pair in "${{ env.FRONT }}:${{ env.FRONT }}" "${{ env.BACK }}:${{ env.BACK }}"; do
-            name="${pair%%:*}";
-            docker pull --platform linux/amd64 \
-              ${{ env.REGISTRY }}/${{ env.OWNER }}/${name}:${{ env.VERSION }}
-            docker tag \
-              ${{ env.REGISTRY }}/${{ env.OWNER }}/${name}:${{ env.VERSION }} \
-              ${name}:${{ env.VERSION }}
-            docker save -o upk-images/${name}-amd64-upk.tar ${name}:${{ env.VERSION }}
-            echo "=== ${name}:${{ env.VERSION }} (amd64) ==="
-            tar -tf upk-images/${name}-amd64-upk.tar | head -20
-          done
+          docker buildx build --platform linux/amd64 \
+            -f ugnas/Dockerfile \
+            -t ${FRONT}:${VERSION} \
+            --cache-from type=gha,scope=${FRONT}-amd64 \
+            --cache-to   type=gha,scope=${FRONT}-amd64,mode=max \
+            --output type=docker,dest=upk-images/${FRONT}-amd64-upk.tar .
+          docker buildx build --platform linux/amd64 \
+            -f ugnas/Dockerfile.backend \
+            -t ${BACK}:${VERSION} \
+            --cache-from type=gha,scope=${BACK}-amd64 \
+            --cache-to   type=gha,scope=${BACK}-amd64,mode=max \
+            --output type=docker,dest=upk-images/${BACK}-amd64-upk.tar .
 
-      - name: 导出 arm64 镜像 tar
+      - name: 导出 arm64 镜像 tar（经典 docker 格式）
         run: |
           set -e
           mkdir -p upk-images
-          for name in "${{ env.FRONT }}" "${{ env.BACK }}"; do
-            docker pull --platform linux/arm64 \
-              ${{ env.REGISTRY }}/${{ env.OWNER }}/${name}:${{ env.VERSION }}
-            docker tag \
-              ${{ env.REGISTRY }}/${{ env.OWNER }}/${name}:${{ env.VERSION }} \
-              ${name}:${{ env.VERSION }}
-            docker save -o upk-images/${name}-arm64-upk.tar ${name}:${{ env.VERSION }}
-            echo "=== ${name}:${{ env.VERSION }} (arm64) ==="
-            tar -tf upk-images/${name}-arm64-upk.tar | head -20
-          done
+          docker buildx build --platform linux/arm64 \
+            -f ugnas/Dockerfile \
+            -t ${FRONT}:${VERSION} \
+            --cache-from type=gha,scope=${FRONT}-arm64 \
+            --cache-to   type=gha,scope=${FRONT}-arm64,mode=max \
+            --output type=docker,dest=upk-images/${FRONT}-arm64-upk.tar .
+          docker buildx build --platform linux/arm64 \
+            -f ugnas/Dockerfile.backend \
+            -t ${BACK}:${VERSION} \
+            --cache-from type=gha,scope=${BACK}-arm64 \
+            --cache-to   type=gha,scope=${BACK}-arm64,mode=max \
+            --output type=docker,dest=upk-images/${BACK}-arm64-upk.tar .
 
-      - name: 校验 tar 内的 tag
+      - name: 校验 tar 格式与 tag
         run: |
           set -e
           cd upk-images
+          fail=0
           for f in *.tar; do
-            echo "--- $f ---"
-            # docker save 格式必然包含 manifest.json，其 RepoTags 就是要核对的 tag
-            tar -xf "$f" -O manifest.json
-            echo ""
+            echo "=== $f ==="
+            # 1) 必须是经典 docker 格式：含 manifest.json，且层路径形如 <id>/layer.tar
+            if ! tar -tf "$f" | grep -q 'manifest.json$'; then
+              echo "  [FAIL] 缺少 manifest.json —— 不是 docker save 格式"; fail=1; continue
+            fi
+            if tar -tf "$f" | grep -q '^blobs/sha256/'; then
+              echo "  [FAIL] 检测到 blobs/sha256/ —— 这是 OCI layout，绿联不认"; fail=1; continue
+            fi
+            if ! tar -tf "$f" | grep -q 'layer.tar$'; then
+              echo "  [FAIL] 未找到 */layer.tar —— 不是经典 docker 分层格式"; fail=1; continue
+            fi
+            # 2) 只能有一个镜像、一个 tag，且不能是 latest
+            cnt=$(tar -xf "$f" -O manifest.json | node -e "
+              let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+                const j=JSON.parse(d);
+                const tags=(j[0]||{}).RepoTags||[];
+                console.log(tags.length);
+                console.error(JSON.stringify(tags));
+              });
+            " 2>/tmp/tags.txt)
+            echo "  RepoTags = $(cat /tmp/tags.txt)（镜像数 $cnt）"
+            if [ "$cnt" != "1" ]; then echo "  [FAIL] manifest.json 里不是恰好 1 个镜像"; fail=1; fi
+            if grep -q ':latest' /tmp/tags.txt; then echo "  [FAIL] 使用了 latest tag"; fail=1; fi
+            echo "  [OK]"
           done
           ls -lh
+          if [ "$fail" != "0" ]; then echo "格式校验未通过，终止"; exit 1; fi
 
       - name: 上传 tar 到 Release
         uses: softprops/action-gh-release@v2
@@ -126,3 +150,4 @@ jobs:
           tag_name: "upk-images-${{ env.VERSION }}"
           files: upk-images/*.tar
           fail_on_unmatched_files: true
+          overwrite: true
