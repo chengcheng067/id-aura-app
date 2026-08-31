@@ -165,8 +165,35 @@ docker run --rm -p 28080:80 -e VITE_DATA_SOURCE=local idplan:local
 ## 5. 绿联 UGOS Pro 打包上架
 
 > 需先完成：申请开发者授权（序列号 + MAC + 管理员用户名 邮件联系绿联）；本机安装 `ugcli`。
+>
+> **✅ 当前实际在用的流程是 5.0（无本机 Docker 也能打包）**；5.1/5.2 是早期需要本机 Docker 的旧方案，仅留档。
 
-### 5.1 构建产物 + 导镜像（pack.sh 已封装）
+### 5.0 实际在用：云端导镜像 + 本地打包（无需本机 Docker）
+
+本机跑不了 Docker，镜像 tar 由 GitHub Actions 云端导出，本地只做「下载 + 校验 + 打包」：
+
+```
+① 推 tag 触发云端导出：
+   git tag upk-0.3.0-3 && git push origin upk-0.3.0-3
+   → .github/workflows/upk-images.yml
+   → buildx --output type=docker 导出「经典 docker-save 格式」tar
+     （不能用 docker save：runner 的 containerd 存储会输出 OCI layout，绿联不认；
+      也不能用 --output type=oci，同样被 ugcli 拒绝且体积膨胀 3 倍）
+   → 挂到 Release upk-images-<版本>，并自校验「单 manifest + 非 latest」
+
+② 本地打包（下载走 GitHub API 资产通道，比直链快几十倍；含断点续传重试）：
+   GH_TOKEN=<pat> bash ugnas/scripts/pack-amd64.sh 1
+   → 下载 4 个 tar → 放入 rootfs_<arch>/images/ → ugcli check → ugcli pack
+   → build_dir/pkgs/upk/{amd64|arm64}_com.chengcheng.idplan_0.3.0.0001.upk
+```
+
+**关键约束（ugcli 硬校验，错了直接打包失败）**：
+- tar 必须经典 docker-save 格式（根下有 `manifest.json`，不是 `blobs/`）
+- 一个 tar 只装一个镜像一个 tag；tag 与 compose `image:` **完全一致**；禁止 `latest`
+- compose 不写 `build:`；`${VAR}` 必须在 project.yaml `parameters` 声明（`TZ` 内置，声明反而报错）
+- 同一 `x.y.z` 下 `--build` 号必须递增，否则应用中心拒绝覆盖安装
+
+### 5.1 构建产物 + 导镜像（pack.sh 已封装，需本机 Docker，已弃用）
 ```bash
 cd changxia && bash ugnas/scripts/pack.sh --build 1
 ```
