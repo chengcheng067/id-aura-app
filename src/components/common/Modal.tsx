@@ -119,7 +119,7 @@ export function Modal({
         ref={panelRef}
         tabIndex={-1}
         className={`outline-none flex h-full w-full ${
-          placement === 'right' ? 'justify-end' : 'items-center justify-center p-6'
+          placement === 'right' ? 'justify-end' : 'items-center justify-center p-4 sm:p-6'
         }`}
         // 拦截合成 click，阻止其沿 React 组件树冒泡到背后触发器的 onClick（如项目卡片 → 跳转）。
         // 关键：Modal 用 createPortal 只改 DOM 挂载点，React 树仍是调用方的子树，

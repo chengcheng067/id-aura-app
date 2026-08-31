@@ -198,7 +198,7 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
   return (
     <div className="space-y-5">
       {/* 顶部大日期头（系统日历风格） */}
-      <div className="glass-strong flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-sand p-5">
+      <div className="glass-strong flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-sand p-4 sm:gap-4 sm:p-5">
         <div>
           <div className="font-display text-xl text-ink">{formatSelectedDate(selectedDate)}</div>
           <div className="mt-0.5 text-xs text-mist">{lunarLabel()}</div>
@@ -252,8 +252,8 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
       {emptyKind ? (
         <EmptyState kind={emptyKind} monthLabel={meta.label} onClear={clearFilters} onManual={onManual} />
       ) : (
-        <div className="glass-medium overflow-hidden rounded-[20px] border border-sand p-4 shadow-soft">
-          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-[12px] border border-sand bg-sand">
+        <div className="glass-medium overflow-x-auto rounded-[20px] border border-sand p-4 shadow-soft">
+          <div className="grid min-w-[560px] grid-cols-7 gap-px overflow-hidden rounded-[12px] border border-sand bg-sand">
             {/* 星期表头 */}
             {WEEKDAYS.map((w) => (
               <div

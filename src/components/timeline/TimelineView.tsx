@@ -35,6 +35,20 @@ const ZOOM_PPD: Record<TimelineZoom, number> = {
   'half-month': 30, // 双周粒度：30px/天
 };
 
+/** 手机（<768px）判定：响应式左列收窄用（纯 CSR SPA，window 可用） */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia('(max-width: 767px)').matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    const onChange = (): void => setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
+
 export interface PendingReschedule {
   stageId: string;
   stageName: string;
@@ -75,6 +89,8 @@ export function TimelineView({
   const restPolicy = useSettingsStore((s) => s.restPolicy);
 
   const pxPerDay = ZOOM_PPD[zoom];
+  // 手机左列收窄（<768px 由 260 降到 180）
+  const leftColW = useIsMobile() ? 180 : LEFT_COL_W;
   // T5：工作日口径开关（项目级排期基准）；Calendar/缺省走原自然日分支，逐字节不变
   const useWorkday = project.scheduleBasis === ScheduleBasis.Workday;
 
@@ -115,7 +131,7 @@ export function TimelineView({
   const days = rangeDays(range);
   const chartW = days * pxPerDay;
   // 图1：SVG 画布宽度取「内容实际宽」与「可视视口宽-左列」较大者，行底纹/网格铺满右缘不空白
-  const contentW = Math.max(chartW, viewportW - LEFT_COL_W);
+  const contentW = Math.max(chartW, viewportW - leftColW);
 
   useKeyboardPan(true, range, setRange);
 
@@ -212,7 +228,7 @@ export function TimelineView({
   return (
     <div className="relative">
       {/* 缩放档位切换 */}
-      <div className="mb-2 flex items-center justify-between text-xs text-mist">
+      <div className="mb-2 hidden items-center justify-between text-xs text-mist sm:flex">
         <span>提示：拖动彩条边缘改期；←/→ 键平移时间轴（Shift 加速）</span>
         <div className="flex overflow-hidden rounded-md border border-sand">
           {(
@@ -241,12 +257,12 @@ export function TimelineView({
         onWheel={handleWheel}
       >
         {/* 宽度取「内容实际宽」与「可视视口宽」较大者：画布撑满可视区，避免图1月档下右侧留白 */}
-        <div style={{ width: LEFT_COL_W + contentW }}>
+        <div style={{ width: leftColW + contentW }}>
           {/* 表头行：左侧空置 + 刻度尺 */}
           <div className="flex" style={{ height: HEADER_H }}>
             <div
               className="sticky left-0 z-20 shrink-0 border-r border-sand bg-cream"
-              style={{ width: LEFT_COL_W }}
+              style={{ width: leftColW }}
             />
             <MonthScaleHeader
               ticks={
@@ -268,6 +284,7 @@ export function TimelineView({
               activeStageId={activeStageId}
               members={members}
               memberView={memberView}
+              leftColW={leftColW}
             />
 
             {/* 右侧 SVG 画布：宽度撑满可视区（contentW），行底纹铺满右缘，彩条仍按真实日期 xOf 定位 */}

@@ -57,8 +57,8 @@ export function TopBar(): JSX.Element {
 
   return (
     <header className="relative z-40 print:hidden">
-      <div className="mx-auto w-full max-w-[1600px] px-8 pt-6">
-        <div className="glass-strong flex items-center justify-between gap-6 rounded-[20px] border border-sand p-4">
+      <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 sm:px-6 lg:px-8">
+        <div className="glass-strong flex items-center justify-between gap-3 rounded-[20px] border border-sand p-4 sm:gap-6">
           {/* 左：logo + 品牌 */}
           <Link to="/" className="flex shrink-0 items-center gap-3">
             <span
@@ -102,7 +102,7 @@ export function TopBar(): JSX.Element {
           </div>
 
           {/* 右：导航 + 备份 + 视图切换 + 新建 + 身份 */}
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
             {isAdmin && (
               <Link to="/" className={navClass(location.pathname === '/')}>
                 项目

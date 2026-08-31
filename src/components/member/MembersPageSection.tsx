@@ -202,7 +202,7 @@ function MemberRow({
   };
 
   return (
-    <li className="flex items-center gap-3 py-2">
+    <li className="flex flex-wrap items-center gap-2 py-2 sm:gap-3">
       <span
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs text-white"
         style={{ backgroundColor: member.avatarColor }}
@@ -254,15 +254,15 @@ function MemberRow({
       )}
 
       {!editing && (
-        <span className="ml-auto flex items-center gap-2">
+        <span className="ml-auto flex flex-wrap items-center gap-2">
           {!isAdminMember && member.active && (
             <button
               type="button"
               onClick={onPromote}
               title="设为管理员"
-              className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-pine"
+              className="inline-flex items-center gap-1 rounded-md border border-sand px-1.5 py-1 text-xs text-mist hover:bg-sand hover:text-pine sm:px-2"
             >
-              <Crown size={12} /> 设为管理员
+              <Crown size={12} /> <span className="hidden sm:inline">设为管理员</span>
             </button>
           )}
           {isAdminMember && member.active && (
@@ -271,34 +271,34 @@ function MemberRow({
               onClick={onDemote}
               disabled={isLastAdmin}
               title={isLastAdmin ? '系统至少需要一名管理员' : '取消管理员'}
-              className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-clay disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-md border border-sand px-1.5 py-1 text-xs text-mist hover:bg-sand hover:text-clay disabled:cursor-not-allowed disabled:opacity-40 sm:px-2"
             >
-              <XCircle size={12} /> 取消管理员
+              <XCircle size={12} /> <span className="hidden sm:inline">取消管理员</span>
             </button>
           )}
           <button
             type="button"
             onClick={() => setEditing(true)}
             title="重命名"
-            className="inline-flex items-center gap-1 rounded-md border border-sand px-2 py-1 text-xs text-mist hover:bg-sand hover:text-pine"
+            className="inline-flex items-center gap-1 rounded-md border border-sand px-1.5 py-1 text-xs text-mist hover:bg-sand hover:text-pine sm:px-2"
           >
-            <Pencil size={12} /> 重命名
+            <Pencil size={12} /> <span className="hidden sm:inline">重命名</span>
           </button>
           <button
             type="button"
             onClick={onToggle}
             title={member.active ? '停用成员' : '重新启用'}
-            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
+            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-xs sm:px-2 ${
               member.active ? 'border-sand text-mist hover:bg-sand' : 'border-sand text-pine hover:bg-sand'
             }`}
           >
             {member.active ? (
               <>
-                <UserX size={12} /> 停用
+                <UserX size={12} /> <span className="hidden sm:inline">停用</span>
               </>
             ) : (
               <>
-                <UserRound size={12} /> 启用
+                <UserRound size={12} /> <span className="hidden sm:inline">启用</span>
               </>
             )}
           </button>

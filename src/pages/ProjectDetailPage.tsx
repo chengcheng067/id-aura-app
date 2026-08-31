@@ -139,7 +139,7 @@ export function ProjectDetailPage(): JSX.Element {
       </div>
 
       {/* 顶条信息环（v0.3 玻璃化；非管理员视角隐藏 clientName/address 等敏感字段） */}
-      <div className="glass-medium mb-5 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-lg border border-sand p-5 shadow-soft">
+      <div className="glass-medium mb-5 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-sand p-4 shadow-soft sm:gap-x-8 sm:p-5">
         <div>
           <h1 className="font-display text-display-lg">{project.name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-mist">
@@ -152,7 +152,7 @@ export function ProjectDetailPage(): JSX.Element {
           </p>
         </div>
 
-        <div className="ml-auto flex items-center gap-6">
+        <div className="ml-auto flex flex-wrap items-center gap-3 sm:gap-6">
           <CountdownNumber target={countdownTarget} todayIso={todayIso} />
           <CompletionRing percent={percent} size={52} />
           <div className="text-xs leading-5 text-mist">

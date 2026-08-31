@@ -23,7 +23,7 @@ export function AppShell(): JSX.Element {
   return (
     <div className="min-h-screen bg-cream font-body text-ink">
       <TopBar />
-      <main className="mx-auto w-full max-w-[1600px] px-8 pb-16 pt-6">
+      <main className="mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <Outlet />
       </main>
       {/* 身份进入对话框（first-run 管理员确立 / 成员姓名进入 / 未命中提示） */}

@@ -18,6 +18,7 @@ export function StageRowsColumn({
   onRowClick,
   members = [],
   memberView = false,
+  leftColW = 260,
 }: {
   stages: Stage[];
   todayIso: string;
@@ -25,6 +26,7 @@ export function StageRowsColumn({
   onRowClick(stageId: string): void;
   members?: Member[];
   memberView?: boolean;
+  leftColW?: number;
 }): JSX.Element {
   const ownerLabel = (stage: Stage): string => {
     if (!stage.ownerId) return '未指派负责人';
@@ -36,7 +38,7 @@ export function StageRowsColumn({
   return (
     <div
       className="sticky left-0 z-10 shrink-0 border-r border-sand bg-cream"
-      style={{ width: 260 }}
+      style={{ width: leftColW }}
     >
       {stages.map((s) => (
         <button

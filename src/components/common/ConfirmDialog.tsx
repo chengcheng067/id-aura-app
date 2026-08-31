@@ -30,7 +30,7 @@ export function ConfirmDialog({
 }): JSX.Element | null {
   return (
     <Modal open={open} onClose={onCancel} ariaLabel={title}>
-      <div className="glass-strong iridescent-border dialog-pop w-full max-w-md rounded-2xl p-5 shadow-soft outline-none">
+      <div className="glass-strong iridescent-border dialog-pop w-full max-w-md rounded-2xl p-4 shadow-soft outline-none sm:p-5">
         <div className="mb-3 flex items-start justify-between gap-4">
           <h2 className="font-display text-display-md">{title}</h2>
           <button
