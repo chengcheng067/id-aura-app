@@ -14,8 +14,11 @@
 # =====================================================================
 set -euo pipefail
 
-# UPK 项目根：changxia/ugnas/upk/（含 project.yaml + rootfs_*/）
-cd "$(dirname "$0")/../upk"
+# UPK 项目根：<repo>/changxia/ugnas/upk/（含 project.yaml + rootfs_*/）
+# 用脚本自身绝对位置定位，避免从不同 cwd 调用时相对路径出错。
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+UPK_ROOT="$(cd "${SCRIPT_DIR}/../upk" && pwd)"
+cd "$UPK_ROOT"
 
 BUILD="${1:-1}"
 VERSION="0.3.0"
@@ -23,7 +26,19 @@ RELEASE_TAG="upk-images-${VERSION}"
 REPO="chengcheng067/id-aura-app"
 API="https://api.github.com/repos/${REPO}"
 GH_TOKEN="${GH_TOKEN:-}"
-UGCLI="$(cd "$(dirname "$0")/../../.." && pwd)/tools/ugcli.exe"
+# ugcli.exe 所在目录：本脚本位于 <repo>/changxia/ugnas/scripts/，
+# 其上级两级是 <repo>/changxia/，再上级是 <repo>。优先 <repo>/tools/ugcli.exe，
+# 其次上级 Workspace 根 <repo>/../tools/ugcli.exe。
+# SCRIPT_DIR 已在顶部用脚本自身绝对位置计算（与当前 cwd 无关），这里直接复用。
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"        # <repo>/
+CHANGXIA_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"        # <repo>/changxia/
+if [ -x "${REPO_ROOT}/tools/ugcli.exe" ]; then
+  UGCLI="${REPO_ROOT}/tools/ugcli.exe"
+elif [ -x "${CHANGXIA_ROOT}/tools/ugcli.exe" ]; then
+  UGCLI="${CHANGXIA_ROOT}/tools/ugcli.exe"
+else
+  UGCLI="${REPO_ROOT}/../tools/ugcli.exe"
+fi
 
 # 通过 Release API 动态解析资产 ID，再走 API 通道下载（实测比
 # browser_download_url 快几十倍：~1.3MB/s vs ~20KB/s）
@@ -40,6 +55,18 @@ asset_url() {
 }
 
 echo "==> 版本 ${VERSION}，构建号 ${BUILD}"
+
+# 跨平台取文件字节数：GNU stat(-c%s) / BSD stat(-f%z) / 兜底 wc -c
+host_size() {
+  local f="$1"
+  if stat -c%s "$f" >/dev/null 2>&1; then
+    stat -c%s "$f" 2>/dev/null
+  elif stat -f%z "$f" >/dev/null 2>&1; then
+    stat -f%z "$f" 2>/dev/null
+  else
+    wc -c < "$f" 2>/dev/null | tr -d ' '
+  fi
+}
 
 # 经典 docker-save 格式的体积特征（压缩层）：
 #   前端 ~20MB、后端 ~170MB。若远超此值说明导出了 OCI 未压缩格式，直接报错。
@@ -67,18 +94,25 @@ download() {
     expect=$(curl -sI "${AUTH[@]}" -H "Accept: application/octet-stream" "$url" \
       | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}' | tail -1)
     for i in 1 2 3 4 5 6 7 8; do
-      cur=$(stat -c%s "$dest" 2>/dev/null || echo 0)
-      if [ -n "$expect" ] && [ "$cur" -ge "$expect" ]; then break; fi
+      if [ -s "$dest" ] && [ -n "$expect" ] && [ "$(host_size "$dest")" -ge "$expect" ]; then
+        break
+      fi
+      echo "    (第 ${i} 次下载/续传)"
       curl -fL -C - --retry 2 --connect-timeout 20 "${AUTH[@]}" \
         -H "Accept: application/octet-stream" -o "$dest" "$url" || true
     done
   fi
   local mb
-  mb=$(( $(stat -c%s "$dest" 2>/dev/null || stat -f%z "$dest") / 1048576 ))
+  mb=$(( $(host_size "$dest") / 1048576 ))
   echo "    大小 ${mb}MB"
   if [ "$mb" -gt "$max_mb" ]; then
     echo "    ✗ ${name} 体积 ${mb}MB 超过预期上限 ${max_mb}MB —— 疑似 OCI 未压缩格式，"
     echo "      请检查 upk-images 工作流是否用的 --output type=docker。"
+    exit 1
+  fi
+  # 下载完整性：空文件或 0 字节直接判失败
+  if [ "$(host_size "$dest")" -le 0 ]; then
+    echo "    ✗ ${name} 下载失败（空文件）。请检查网络 / GH_TOKEN 权限。"
     exit 1
   fi
 }
