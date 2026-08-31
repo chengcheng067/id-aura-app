@@ -24,9 +24,8 @@ import { CalendarPrintPage } from './pages/CalendarPrintPage';
  *   /project/:id/calendar-print 月历打印/导出视图（v0.5）
  *   /my-tasks                  我的任务（成员视角）
  *
- * 底座：绿联 inner 模式下应用挂载在 /<proxy_path>/ 下（网关只转发该前缀，不剥前缀），
- * 故 createBrowserRouter 需带 basename；base 用 import.meta.env.BASE_URL（tab=/, inner=/idplan/），
- * render 前 strip 尾部斜杠避免 react-router 解析歧义。
+ * 底座：绿联 Docker 应用是 IP:端口直连（根路径 /），不走系统网关、无 /<proxy_path>/ 前缀
+ * （proxy_path 是原生应用专用字段）。故无需 basename，路由直接挂根路径。
  */
 export const router = createBrowserRouter(
   [
@@ -43,9 +42,6 @@ export const router = createBrowserRouter(
       ] satisfies RouteObject[],
     },
   ],
-  {
-    basename: (import.meta.env.BASE_URL || '/').replace(/\/+$/, ''),
-  },
 );
 
 /**

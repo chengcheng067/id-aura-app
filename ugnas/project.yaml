@@ -15,7 +15,7 @@ support_arch:
   - amd64
   - arm64
 
-# 客户端类型：pc=桌面端，app=移动端（inner 模式下移动端可内嵌打开；适配手机见前端响应式）
+# 客户端类型：pc=桌面端，app=移动端（Docker 应用 tab 直连 IP:端口，手机浏览器亦可访问；适配手机见前端响应式）
 supports:
   - pc
   - app
@@ -27,14 +27,13 @@ depend_docker_version: 1.7.0.0000
 # 最低固件版本（声明白依赖时必填；版本号请联系绿联开发确认）
 depend_fw_version: 1.13.0.0000
 
-# 对外监听端口：系统网关转发到容器 80（port 填宿主机端口，与 compose 的 28080:80 对应）
+# 对外监听端口：宿主端口（Docker 应用 IP:端口直连访问模型，与 compose 的 28080:80 对应）。
+# 官方 Docker 应用示例 port: 29090 与 compose ports: "29090:9090" 同值 → port=宿主端口。
 port: 28080
-# 打开方式：inner = 在 UGOS Pro 桌面窗口内打开（支持移动端内嵌、后续可扩展 JSSDK）；
-#           inner 必须配置 proxy_path，网关把应用挂载到 http://NAS-IP:28080/<proxy_path>/，
-#           不剥前缀 → 前端 Vite base + nginx 前缀路由 + /api 反代都需对齐（见 ugnas/nginx/nginx.conf）。
-open_type: inner
-# inner 专用：网关转发的前缀路径，同时需与 Vite base（'/idplan/'）和 nginx location 一致
-proxy_path: idplan
+# 打开方式：tab = 在浏览器新标签页直接通过 IP+端口访问应用。
+# Docker 应用（nginx 托管完整 SPA）是「IP:端口直连」模型，不走系统网关，
+# 故用 tab；proxy_path 是原生应用专用字段（把 /api 前缀转给后端进程），Docker 应用无需配置。
+open_type: tab
 
 # 应用类别
 tag_types:

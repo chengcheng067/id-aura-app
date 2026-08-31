@@ -17,7 +17,6 @@ import { Badge } from '../components/common/Badge';
 import { PROJECT_TYPE_LABELS, ProjectType } from '../core/types/enums';
 import type { Stage } from '../core/types/entities';
 import { totalDaysInclusive } from '../lib/date';
-import { appPath } from '../config/env';
 
 /**
  * 项目详情主视图：顶条信息环 + 九阶段时间轴 + 阶段抽屉。
@@ -118,7 +117,7 @@ export function ProjectDetailPage(): JSX.Element {
               {/* v0.3 变更 E：日程表打印视图（仅 admin；新窗口打开，打印完可关） */}
               <button
                 type="button"
-                onClick={() => window.open(appPath(`/project/${project.id}/schedule-print`), '_blank')}
+                onClick={() => window.open(`/project/${project.id}/schedule-print`, '_blank')}
                 className="inline-flex items-center gap-1 rounded-md border border-sand bg-paper px-3 py-1.5 text-mist hover:bg-sand"
                 title="打开日程表打印视图（新窗口）"
               >

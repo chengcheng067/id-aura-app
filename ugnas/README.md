@@ -237,9 +237,9 @@ ugcli pack --arch all --build 1
 | `version` | `0.3.0` | `ugcli pack --build N` 后最终 `0.3.0.N` |
 | `is_docker_app` | `true` | 当前 Docker 形态 |
 | `depend_docker_version` | `1.7.0.0000` | 依赖 Docker 套件最低版 |
-| `port` | `28080` | 容器对外监听端口 |
-| `open_type` | `inner` | 在 UGOS Pro 桌面窗口内打开（内嵌，支持移动端） |
-| `proxy_path` | `idplan` | inner 模式网关转发前缀，与 Vite base、nginx `/idplan/` 前缀一致 |
+| `port` | `28080` | 宿主端口（Docker 应用 IP:端口直连），与 compose `28080:80` 对应 |
+| `open_type` | `tab` | 浏览器新标签页通过 IP+端口直连打开（不走系统网关） |
+| `proxy_path` | （无） | Docker 应用无需配置（原生应用专用：把 /api 前缀转给后端进程） |
 | `supports` | `[pc, app]` | 桌面端 + 移动端 |
 | `parameters` | 见文件 | 数据源 / API 地址，用户可改（注入 compose） |
 

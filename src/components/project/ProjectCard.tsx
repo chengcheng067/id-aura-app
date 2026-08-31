@@ -8,7 +8,6 @@ import { currentStageOf, computeProjectPercent, computeProjectStatus } from '../
 import { useRepos } from '../../hooks/useRepos';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useNavigate } from 'react-router-dom';
-import { appPath } from '../../config/env';
 import { AvatarStack } from '../common/AvatarStack';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Modal } from '../common/Modal';
@@ -180,7 +179,7 @@ export function ProjectCard({
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    window.open(appPath(`/project/${project.id}/schedule-print`), '_blank');
+                    window.open(`/project/${project.id}/schedule-print`, '_blank');
                   }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-sand"
                 >

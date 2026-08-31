@@ -21,9 +21,9 @@
     <script>
       window.__APP_ENV__ = { VITE_DATA_SOURCE: 'local', VITE_API_BASE_URL: '' };
     </script>
-    <!-- 绿联 inner 模式下应用挂载在 /<proxy_path>/ 下，网关只转发该前缀，故用 %BASE_URL%
-         让 env-config.js 跟随部署前缀（tab 模式 = /，inner 模式 = /idplan/）；绝对 /env-config.js 会绕过网关 404 -->
-    <script src="%BASE_URL%env-config.js" onerror="/* 非容器环境无此文件，忽略即可 */"></script>
+    <!-- 绿联 Docker 应用是 IP:端口直连（根路径），env-config.js 固定位于站点根，用绝对 /env-config.js。
+         base 默认 '/' 时 %BASE_URL% 即为 '/'，这里写 /env-config.js 即可。 -->
+    <script src="/env-config.js" onerror="/* 非容器环境无此文件，忽略即可 */"></script>
   </head>
   <body>
     <!-- 宋体系衬线标题字体为本地字体栈优先（离线优先原则，不强拉网络字体）；
