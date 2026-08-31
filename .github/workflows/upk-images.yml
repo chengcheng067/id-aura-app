@@ -23,11 +23,18 @@
 #   idplan:0.3.0 / idplan-backend:0.3.0
 # 必须与 ugnas/upk/rootfs_common/docker-compose.yaml 里的 image: 完全一致。
 #
-# 触发：手动 workflow_dispatch（在 Actions 页面点 Run workflow）
+# 触发（两种都行）：
+#   1. 推送 upk- 开头的 tag，例如：
+#        git tag upk-0.3.0-1 && git push origin upk-0.3.0-1
+#      版本号从 tag 名里解析（upk-<版本>-<序号> → <版本>）
+#   2. 在 GitHub → Actions → upk-images → Run workflow 手动点
 # =====================================================================
 name: upk-images
 
 on:
+  push:
+    tags:
+      - "upk-*"
   workflow_dispatch:
     inputs:
       version:
@@ -59,8 +66,15 @@ jobs:
       - name: 确定版本号
         run: |
           VER="${{ github.event.inputs.version }}"
+          # 从 tag 解析：upk-0.3.0-1 → 0.3.0
+          if [ -z "$VER" ] && [[ "${GITHUB_REF}" == refs/tags/upk-* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            REST="${TAG#upk-}"
+            VER="${REST%-*}"
+          fi
           if [ -z "$VER" ]; then VER="0.3.0"; fi
           echo "VERSION=${VER}" >> "$GITHUB_ENV"
+          echo "解析到版本号：${VER}（来源 ref=${GITHUB_REF}）"
 
       - name: 导出 amd64 镜像 tar
         run: |
