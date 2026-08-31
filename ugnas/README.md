@@ -234,12 +234,13 @@ ugcli pack --arch all --build 1
 | 字段 | 值 | 说明 |
 |---|---|---|
 | `app_id` | `com.chengcheng.idplan` | 上架后不可改 |
-| `version` | `0.1.0` | `ugcli pack --build N` 后最终 `0.1.0.N` |
+| `version` | `0.3.0` | `ugcli pack --build N` 后最终 `0.3.0.N` |
 | `is_docker_app` | `true` | 当前 Docker 形态 |
 | `depend_docker_version` | `1.7.0.0000` | 依赖 Docker 套件最低版 |
 | `port` | `28080` | 容器对外监听端口 |
-| `open_type` | `inner` | 桌面内独立窗口 |
-| `supports` | `[pc]` | 桌面端为主 |
+| `open_type` | `inner` | 在 UGOS Pro 桌面窗口内打开（内嵌，支持移动端） |
+| `proxy_path` | `idplan` | inner 模式网关转发前缀，与 Vite base、nginx `/idplan/` 前缀一致 |
+| `supports` | `[pc, app]` | 桌面端 + 移动端 |
 | `parameters` | 见文件 | 数据源 / API 地址，用户可改（注入 compose） |
 
 ---
