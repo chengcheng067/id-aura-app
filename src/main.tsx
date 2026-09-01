@@ -9,6 +9,7 @@ import {
 
 import { RepoProvider } from './di/repository.provider';
 import { initTheme } from './hooks/useTheme';
+import { installGlobalLogCatchers } from './core/services/log.service';
 import './styles/global.css';
 import { AppShell } from './components/layout/AppShell';
 import { HomeRouteGuard } from './components/layout/HomeRouteGuard';
@@ -56,6 +57,10 @@ export const router = createBrowserRouter(
 // index.html 里的同步内联脚本已经防过一次首屏闪白，这里再跑一次是为了接管系统偏好监听；
 // 两者读同一份 localStorage，结果一致，不会打架。
 initTheme();
+
+// 全局前端日志：捕获运行时错误/未捕获 Promise 异常/console.error·warn，
+// 写入本地日志，设置界面可一键导出。必须在 React 渲染前挂载，才能网住首帧异常。
+installGlobalLogCatchers();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

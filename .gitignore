@@ -22,3 +22,9 @@ ugnas/upk/build_dir/
 ugnas/upk/cache/
 ugnas/upk/rootfs_*/images/*.tar
 ugnas/cache/
+
+# 本地打包/临时产物，不入库
+win-out*/
+tmp/
+_e2e_*.ts
+vite.config.ts.timestamp-*.mjs

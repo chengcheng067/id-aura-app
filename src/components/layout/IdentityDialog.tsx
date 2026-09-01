@@ -12,6 +12,7 @@ import { ChangxiaError, MemberRoleKind } from '../../core/types/enums';
 import type { Member } from '../../core/types/entities';
 import { Modal } from '../common/Modal';
 import { ImeInput } from '../common/ImeInput';
+import { logError, logUser } from '../../core/services/log.service';
 
 /**
  * 身份进入对话框（增量架构 3.3 状态机 UI 承载）：
@@ -105,6 +106,7 @@ export function IdentityDialog(): JSX.Element | null {
           setCurrentMember(created.id);
         }
         toast('success', `管理员「${trimmed}」已确立`);
+        logUser('身份', `身份切换：管理员「${trimmed}」确立`);
         closeIdentityFlow();
         return;
       }
@@ -112,6 +114,7 @@ export function IdentityDialog(): JSX.Element | null {
       // 成员进入：命中 active 成员（含 admin）→ 锁定；未命中 → mismatch 停留
       if (matched) {
         setCurrentMember(matched.id);
+        logUser('身份', `身份切换：成员「${trimmed}」进入`);
         closeIdentityFlow();
         return;
       }
@@ -120,6 +123,7 @@ export function IdentityDialog(): JSX.Element | null {
       setIdentityFlow('mismatch');
     } catch (err) {
       toast('error', err instanceof ChangxiaError ? err.userMessage : '身份设置失败，请重试。');
+      logError('身份', `身份切换失败：${trimmed ? `「${trimmed}」` : ''}`, err);
     } finally {
       setBusy(false);
     }

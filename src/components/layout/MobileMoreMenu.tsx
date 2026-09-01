@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, CalendarRange, LayoutGrid, MoreVertical, PenLine, Save, Upload } from 'lucide-react';
+import { CalendarDays, CalendarRange, FileDown, LayoutGrid, MoreVertical, PenLine, Save, Upload } from 'lucide-react';
 
 import { useRoleGuard } from '../../hooks/useRoleGuard';
 import { useUiStore } from '../../store/useUiStore';
 import { RestPolicyDialog } from '../settings/RestPolicyDialog';
 import { useBackupIo } from './useBackupIo';
+import { createLogExportIo } from './useLogExport';
 import { cn } from '../../lib/cn';
 
 /** 菜单项基础样式（玻璃面板内，hover 走 sand 半透明白，不引入新颜色；py-2 收紧提升密度） */
@@ -40,6 +41,7 @@ export function MobileMoreMenu(): JSX.Element {
   const setHomeViewMode = useUiStore((s) => s.setHomeViewMode);
   const openManualForm = useUiStore((s) => s.openManualForm);
   const { save, pick, fileInput, confirmDialog } = useBackupIo();
+  const logIo = createLogExportIo();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [restOpen, setRestOpen] = useState(false);
@@ -202,6 +204,21 @@ export function MobileMoreMenu(): JSX.Element {
               </button>
             </>
           )}
+
+          {/* 导出日志：调试友好，所有角色可用（不限管理员） */}
+          <Divider />
+          <button
+            type="button"
+            role="menuitem"
+            className={ITEM}
+            onClick={() => {
+              setMenuOpen(false);
+              logIo.export();
+            }}
+          >
+            <FileDown size={15} className={ITEM_ICON} />
+            导出日志
+          </button>
         </div>
       )}
 

@@ -7,6 +7,7 @@ import {
   downloadBackup,
   validateBackupJson,
 } from '../../core/services/backup.service';
+import { logError, logUser } from '../../core/services/log.service';
 import { ChangxiaError } from '../../core/types/enums';
 import type { BackupPackage } from '../../core/types/dto';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -47,8 +48,10 @@ export function useBackupIo(): BackupIo {
       const pkg = await new BackupService(repos).exportAll();
       downloadBackup(pkg);
       toast('success', '备份包已保存');
+      logUser('备份', '保存备份成功');
     } catch (err) {
       toast('error', err instanceof ChangxiaError ? err.userMessage : '备份导出失败。');
+      logError('备份', '保存备份失败', err);
     }
   };
 
@@ -61,8 +64,9 @@ export function useBackupIo(): BackupIo {
       validateBackupJson(json);
       setPendingPkg(json as BackupPackage);
       setConfirmOpen(true);
-    } catch {
+    } catch (err) {
       toast('error', '备份文件校验失败，未做任何改动。');
+      logError('备份', '备份文件校验失败', err);
     }
   };
 
@@ -71,12 +75,14 @@ export function useBackupIo(): BackupIo {
     if (!pendingPkg) return;
     try {
       await new BackupService(repos).importAndReplace(pendingPkg);
+      logUser('备份', '从备份恢复成功');
       window.location.reload();
     } catch (err) {
       toast(
         'error',
         err instanceof ChangxiaError ? err.userMessage : '备份恢复失败，本地数据未受影响。',
       );
+      logError('备份', '从备份恢复失败', err);
     }
   };
 
