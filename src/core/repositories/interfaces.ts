@@ -53,6 +53,8 @@ export interface IProjectsRepository {
   insert(cmd: CreateProjectCmd & { id?: string }): Promise<Project>;
   update(id: string, cmd: UpdateProjectCmd): Promise<Project>;
   archive(id: string, archived: boolean): Promise<void>;
+  /** 永久删除（级联清理该项目下 stages/tasks/流水），不可恢复 */
+  remove(id: string): Promise<void>;
 }
 
 export interface IStagesRepository {

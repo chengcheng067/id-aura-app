@@ -80,13 +80,13 @@ export function HomePage(): JSX.Element {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {homeViewMode === 'calendar' ? (
         <MonthlyCalendarView onManual={openManual} />
       ) : (
         <>
-          {/* 统计概览行（参考稿 §统计概览行） */}
-          <section className="flex flex-col gap-5 sm:flex-row">
+          {/* 统计概览行（参考稿 §统计概览行）：手机单列、平板双列、桌面四列） */}
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             <StatCard icon="▣" tone="pine" value={active.length} label="进行中项目" trend={null} />
             <StatCard icon="▢" tone="amber" value={dueThisWeek} label="本周到期任务" trend={null} />
             <StatCard icon="▲" tone="clay" value={overdueCount} label="逾期风险" trend={null} />
@@ -108,13 +108,13 @@ export function HomePage(): JSX.Element {
               </button>
             </div>
           ) : (
-            <section className="flex gap-5 overflow-x-auto pb-2">
+            <section className="grid grid-cols-1 items-start gap-3 sm:gap-4 lg:grid-cols-4">
               {KANBAN_COLUMNS.map((col) => {
                 const items = buckets[col.key];
                 return (
-                  <div
+                    <div
                     key={col.key}
-                    className="glass-light flex min-w-[300px] flex-1 flex-col gap-3.5 rounded-[20px] border border-sand p-4"
+                    className="glass-light flex flex-col gap-3 rounded-3xl p-3.5"
                   >
                     {/* 列头：语义色圆点 + 列名 + 数量徽章 */}
                     <div className="flex items-center justify-between">
@@ -130,7 +130,7 @@ export function HomePage(): JSX.Element {
                     </div>
 
                     {/* 卡片列表 */}
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2.5">
                       {items.map((p) => (
                         <ProjectCard
                           key={p.id}

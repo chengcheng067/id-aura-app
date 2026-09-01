@@ -52,7 +52,7 @@ export function MemberIdentityPicker(): JSX.Element {
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-md border border-sand bg-paper px-3 py-1.5 text-sm shadow-soft transition-colors hover:bg-sand"
+        className="flex items-center gap-2 rounded-md border border-sand bg-paper px-2 py-1.5 text-sm shadow-soft transition-colors hover:bg-sand sm:px-3"
         title="当前身份（点击切换/退出）"
       >
         <span
@@ -61,9 +61,10 @@ export function MemberIdentityPicker(): JSX.Element {
         >
           {(currentMember?.name ?? '?')[0]}
         </span>
-        <span className="max-w-[96px] truncate">{currentMember?.name ?? '未知'}</span>
+        {/* 姓名在手机上隐藏（顶栏第一行放不下），xl 以下连管理员徽标一起收起 */}
+        <span className="hidden max-w-[96px] truncate sm:inline">{currentMember?.name ?? '未知'}</span>
         {isAdmin && (
-          <span className="rounded-full bg-pine-soft px-1.5 py-0.5 text-[10px] font-medium text-pine-deep">
+          <span className="hidden rounded-full bg-pine-soft px-1.5 py-0.5 text-[10px] font-medium text-pine-deep xl:inline-block">
             {MEMBER_ROLE_LABELS.admin}
           </span>
         )}

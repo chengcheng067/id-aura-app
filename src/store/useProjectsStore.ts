@@ -19,6 +19,7 @@ import type {
 import {
   AssignmentAction,
   ChangxiaError,
+  ChangxiaErrorCode,
   ProjectType,
   StageStatus,
 } from '../core/types/enums';
@@ -164,13 +165,9 @@ export function createProjectActions(repos: import('../core/repositories/interfa
       confirmed: Parameters<ProjectService['createProjectFromContract']>[0],
       drafts: StageDraft[],
       contractRecordId?: string,
-    ): Promise<Project | null> {
+    ): Promise<Project> {
       try {
-        const project = await services.projects.createProjectFromContract(
-          confirmed,
-          drafts,
-          contractRecordId,
-        );
+        const project = await services.projects.createProjectFromContract(confirmed, drafts, contractRecordId);
         // 刷新项目全景（stages/tasks 由各自的 list 补齐）
         store.putProject(project);
         const freshStages = await repos.stages.listByProject(project.id);
@@ -182,14 +179,15 @@ export function createProjectActions(repos: import('../core/repositories/interfa
         store.pushToast('success', `「${project.name}」建档完成`);
         return project;
       } catch (err) {
+        // 向上抛真实原因（含 userMessage），由调用方表单展示，避免笼统的「请检查日期」误导文案
         const msg = err instanceof ChangxiaError ? err.userMessage : '建档失败，请重试。';
         store.pushToast('error', msg);
-        return null;
+        throw err instanceof ChangxiaError ? err : new ChangxiaError(ChangxiaErrorCode.Storage, msg);
       }
     },
 
     /** 手动建档 */
-    async createManual(cmd: CreateProjectCmd): Promise<Project | null> {
+    async createManual(cmd: CreateProjectCmd): Promise<Project> {
       try {
         const project = await services.projects.createManualProject(cmd);
         store.putProject(project);
@@ -202,9 +200,10 @@ export function createProjectActions(repos: import('../core/repositories/interfa
         store.pushToast('success', `「${project.name}」手动建档完成`);
         return project;
       } catch (err) {
+        // 向上抛真实原因（含 userMessage），由调用方表单展示，避免笼统的「请检查日期」误导文案
         const msg = err instanceof ChangxiaError ? err.userMessage : '建档失败，请重试。';
         store.pushToast('error', msg);
-        return null;
+        throw err instanceof ChangxiaError ? err : new ChangxiaError(ChangxiaErrorCode.Storage, msg);
       }
     },
 
@@ -233,6 +232,22 @@ export function createProjectActions(repos: import('../core/repositories/interfa
         }
       } catch (err) {
         store.pushToast('error', err instanceof ChangxiaError ? err.userMessage : '操作失败');
+      }
+    },
+
+    /** 永久删除项目（级联清理其下阶段/任务/流水），危险操作，仅 admin 使用 */
+    async removeProject(id: string, projectName?: string): Promise<void> {
+      try {
+        await repos.projects.remove(id);
+        // 同步清理项目镜像：项目 + 其下 stages + tasks（stageLogs 缓存按需丢弃）
+        useProjectsStore.setState((st) => ({
+          projects: st.projects.filter((p) => p.id !== id),
+          stages: st.stages.filter((s) => s.projectId !== id),
+          tasks: st.tasks.filter((t) => t.projectId !== id),
+        }));
+        store.pushToast('success', `「${projectName ?? '项目'}」已删除`);
+      } catch (err) {
+        store.pushToast('error', err instanceof ChangxiaError ? err.userMessage : '删除失败');
       }
     },
 

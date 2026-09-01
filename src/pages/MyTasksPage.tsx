@@ -146,8 +146,8 @@ export function MyTasksPage(): JSX.Element {
         </div>
       </div>
 
-      {/* 统计概览 */}
-      <section className="flex flex-col gap-5 sm:flex-row">
+      {/* 统计概览（手机单列、平板双列、桌面四列，与首页统计行一致） */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard icon="▢" tone="pine" value={stats.today} label="今天到期" trend={null} />
         <StatCard icon="▲" tone="clay" value={stats.overdue} label="已逾期" trend={null} />
         <StatCard icon="▣" tone="amber" value={stats.week} label="7 天内" trend={null} />
@@ -188,8 +188,8 @@ export function MyTasksPage(): JSX.Element {
             (t) => !t.done && t.dueDate && remainingDays(t.dueDate.slice(0, 10), todayIso) < 0,
           ).length;
           return (
-            <section key={projectId} className="glass-light rounded-[16px] border border-sand p-4">
-              <h2 className="mb-3 flex items-center gap-2">
+            <section key={projectId} className="glass-light rounded-[16px] border border-sand p-3.5">
+              <h2 className="mb-2 flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-pine" aria-hidden />
                 {p ? (
                   <Link
@@ -210,7 +210,7 @@ export function MyTasksPage(): JSX.Element {
                   </span>
                 )}
               </h2>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-1.5">
                 {[...rows]
                   .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
                   .map((t) => (
@@ -232,8 +232,8 @@ export function MyTasksPage(): JSX.Element {
       {currentMemberId &&
         filter === 'by-time' &&
         groupedByTime.map(([groupLabel, rows]) => (
-          <section key={groupLabel} className="glass-light rounded-[16px] border border-sand p-4">
-            <h2 className="mb-3 flex items-center gap-2">
+          <section key={groupLabel} className="glass-light rounded-[16px] border border-sand p-3.5">
+            <h2 className="mb-2 flex items-center gap-2">
               <span
                 className={cn(
                   'h-2 w-2 rounded-full',
@@ -246,7 +246,7 @@ export function MyTasksPage(): JSX.Element {
                 {rows.length}
               </span>
             </h2>
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-1.5">
               {rows.map((t) => (
                 <TaskCard
                   key={t.id}
@@ -285,10 +285,10 @@ function TaskCard({
     : STAGE_BAR_COLORS[9];
 
   return (
-    <li className="glass-medium flex items-center gap-3 overflow-hidden rounded-[12px] border border-sand p-3">
+    <li className="glass-medium flex items-center gap-2.5 overflow-hidden rounded-[12px] border border-sand p-2.5">
       {/* 行首阶段色条 */}
       <span
-        className="h-8 w-1 shrink-0 rounded-full"
+        className="h-7 w-1 shrink-0 rounded-full"
         style={{ backgroundColor: stageColor }}
         aria-hidden
       />

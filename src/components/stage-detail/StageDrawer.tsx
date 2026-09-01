@@ -58,7 +58,9 @@ export function StageDrawer({
 
   return (
     <Modal open onClose={close} placement="right" ariaLabel={`阶段详情：${stage.name}`}>
-      <aside className="glass-strong dialog-pop flex h-full w-full max-w-xl flex-col border-l border-sand shadow-soft">
+      <aside className="glass-strong dialog-pop flex h-full w-full flex-col border-l border-sand shadow-soft sm:max-w-xl">
+        {/* 手机端顶部抓手横条（提示可手势下滑关闭区域；平板以上隐藏） */}
+        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-sand sm:hidden" aria-hidden />
         {/* 头 */}
         <div className="flex items-center justify-between border-b border-sand bg-paper/60 px-5 py-3">
           <h2 className="font-display text-display-md">
@@ -111,7 +113,7 @@ function DrawerFrame({
 }): JSX.Element {
   return (
     <Modal open onClose={onClose} placement="right" ariaLabel={title}>
-      <aside className="flex h-full w-full max-w-xl flex-col border-l border-sand bg-paper p-5 shadow-soft">
+      <aside className="flex h-full w-full flex-col border-l border-sand bg-paper p-5 shadow-soft sm:max-w-xl">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-display-md">{title}</h2>
           <button type="button" onClick={onClose} aria-label="关闭" className="rounded-md p-1.5 text-mist hover:bg-sand">

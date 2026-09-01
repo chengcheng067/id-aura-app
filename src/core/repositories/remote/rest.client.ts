@@ -137,6 +137,9 @@ export class RemoteProjectsRepository implements IProjectsRepository {
   archive(id: string, archived: boolean): Promise<void> {
     return this.api.post(`/projects/${id}/archive`, { archived });
   }
+  remove(id: string): Promise<void> {
+    return this.api.delete(`/projects/${id}`);
+  }
 }
 
 export class RemoteStagesRepository implements IStagesRepository {

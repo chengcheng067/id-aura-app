@@ -3,54 +3,227 @@
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------
- * 《ID Plan》液态玻璃全局样式基线（v0.4 灰底）
- * 颜色/字体/阴影的 token 唯一来源是 tailwind.config.ts（别名映射：旧 token 名 → 灰底新值），
- * 这里存放无法用 utility 表达的全局基线：CSS 变量镜像、玻璃分级、虹彩描边、Aura 光晕、
- * 液态动效、暗色滚动条、无障碍与打印基线。
- * 亮色主题 .theme-light 明确不做（PRD 待确认 6 默认：仅暗色基线）。
+ * 《ID Plan》Soft UI 全局样式基线（v0.5 · 双主题）
+ *
+ * 设计来源：https://www.stylekit.top/zh/styles/soft-ui
+ * 三条铁律：
+ *   1) 圆角偏大 —— 卡片 rounded-3xl(24) / 按钮·输入 rounded-2xl(16) / 图标 rounded-full
+ *   2) 阴影柔和 —— 大面积低透明度投影，绝不用硬边阴影或纯黑
+ *   3) 元素与背景同色系 —— 靠阴影区分层次，不靠描边；描边只做 1px 极弱提示
+ *
+ * 主题机制：
+ *   - token 唯一来源在这里的 CSS 变量（:root = 亮色默认，[data-theme='dark'] = 暗色）
+ *   - tailwind.config.ts 只做「旧 token 名 → rgb(var(--x-rgb) / …)」的映射，
+ *     因此 30+ 组件里的 bg-cream / bg-paper / border-sand / text-pine 一个都不用改，
+ *     全站随主题自动换肤；透明度修饰符（bg-pine/20）也照常可用。
+ *
+ * 颜色变量约定：
+ *   --{name}-rgb  存 "R G B" 通道三元组（便于 Tailwind 注入 alpha）
+ *   --{name}-a    该色的默认 alpha（仅「本就半透明」的描边/底纹需要，其余省略=1）
  * ------------------------------------------------------------------------- */
 
+/* ===================== 亮色主题（默认，贴近 stylekit soft-ui） ===================== */
 :root {
-  /* 供个别无法继承 Tailwind 类的场景（如 SVG 内联 attr）使用的变量镜像——灰底液态玻璃值 */
-  --color-cream: #26262a;
-  --color-paper: #3a3a40;
-  --color-ink: #f7f7fa;
-  --color-mist: #a0a0a8;
-  --color-pine: #6ea8fe;
-  --color-amber: #e5b042;
-  --color-clay: #f06548;
-  --color-rest-day: #31313a;
+  color-scheme: light;
+
+  /* —— 表面 —— */
+  --cream-rgb: 248 250 252; /* surface-base 页面底色 slate-50 */
+  --paper-rgb: 255 255 255; /* surface-raised 卡片/面板 */
+  --sunken-rgb: 241 245 249; /* surface-sunken 输入框/内凹井 slate-100 */
+  --sand-rgb: 15 23 42; /* 1px 极弱描边 & hover 底纹 */
+  --sand-a: 0.07;
+
+  /* —— 文字 —— */
+  --ink-rgb: 31 41 55; /* text-primary gray-800 */
+  --mist-rgb: 107 114 128; /* text-secondary gray-500 */
+
+  /* —— 主色 Indigo + 辅色 Pink —— */
+  --pine-rgb: 99 102 241; /* accent indigo-500 #6366f1 */
+  --pine-deep-rgb: 79 70 229; /* accent-strong indigo-600 #4f46e5 */
+  --pine-soft-rgb: 99 102 241;
+  --pine-soft-a: 0.1;
+  --rose-rgb: 236 72 153; /* accent-2 pink-500 #ec4899 */
+  --rose-soft-rgb: 236 72 153;
+  --rose-soft-a: 0.1;
+
+  /* —— 语义色 —— */
+  --amber-rgb: 245 158 11; /* warning amber-500 */
+  --amber-deep-rgb: 217 119 6;
+  --amber-soft-rgb: 245 158 11;
+  --amber-soft-a: 0.12;
+  --clay-rgb: 239 68 68; /* danger red-500 */
+  --clay-deep-rgb: 220 38 38;
+  --clay-soft-rgb: 239 68 68;
+  --clay-soft-a: 0.1;
+  --moss-rgb: 16 185 129; /* success emerald-500 */
+  --moss-soft-rgb: 16 185 129;
+  --moss-soft-a: 0.1;
+
+  /* —— 休息日底纹（渲染层专用，语义走 src/lib/workdays.ts）—— */
+  --rest-day-rgb: 238 242 247;
+  --rest-day-band-rgb: 15 23 42;
+  --rest-day-band-a: 0.04;
+
+  /* —— 时间轴九段莫兰迪彩条（亮/暗通用；中间调，两侧底色上都可辨）—— */
+  --stage-s1-rgb: 169 198 183;
+  --stage-s2-rgb: 159 187 208;
+  --stage-s3-rgb: 211 185 155;
+  --stage-s4-rgb: 188 168 205;
+  --stage-s5-rgb: 196 210 188;
+  --stage-s6-rgb: 147 175 191;
+  --stage-s7-rgb: 213 190 170;
+  --stage-s8-rgb: 156 184 168;
+  --stage-s9-rgb: 187 181 157;
+
+  /* —— 阴影：Soft UI 的灵魂（大范围 + 低透明度 + 绝不纯黑）—— */
+  --shadow-soft: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-raised:
+    0 10px 40px -10px rgba(15, 23, 42, 0.1), 0 2px 8px -2px rgba(15, 23, 42, 0.05);
+  --shadow-raised-lg:
+    0 20px 50px -12px rgba(15, 23, 42, 0.16), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
+  --shadow-overlay: 0 24px 70px -12px rgba(15, 23, 42, 0.22);
+  --shadow-pressed:
+    inset 3px 3px 8px rgba(15, 23, 42, 0.06), inset -3px -3px 8px rgba(255, 255, 255, 0.9);
+  --shadow-accent: 0 10px 24px -6px rgba(99, 102, 241, 0.42);
+  --shadow-accent-hover: 0 14px 32px -6px rgba(99, 102, 241, 0.55);
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.32);
+
+  /* —— 环境光（极弱，只做氛围不抢视线）—— */
+  --ambient-1: rgba(99, 102, 241, 0.05);
+  --ambient-2: rgba(236, 72, 153, 0.04);
+
+  /* —— 滚动条 —— */
+  --scrollbar-thumb: rgba(15, 23, 42, 0.16);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.28);
+
+  /* —— 兼容旧名：供无法继承 Tailwind 类的场景（如内联 SVG attr）使用 —— */
+  --color-cream: #f8fafc;
+  --color-paper: #ffffff;
+  --color-sand: rgba(15, 23, 42, 0.07);
+  --color-ink: #1f2937;
+  --color-mist: #6b7280;
+  --color-pine: #6366f1;
+  --color-amber: #f59e0b;
+  --color-clay: #ef4444;
+  --color-rest-day: #eef2f7;
+  --color-rest-day-band: rgba(15, 23, 42, 0.04);
+
+  /* —— 兼容旧 token 名（历史组件/动效仍在引用）—— */
+  --accent-default: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-muted: rgba(99, 102, 241, 0.1);
+  --accent-glow: rgba(99, 102, 241, 0.25);
+  --accent-purple: #ec4899;
+  --accent-gradient: linear-gradient(135deg, #6366f1, #ec4899);
+  --semantic-success: #10b981;
+  --semantic-warning: #f59e0b;
+  --semantic-danger: #ef4444;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-default: rgba(15, 23, 42, 0.07);
+  --border-strong: rgba(15, 23, 42, 0.12);
+  --border-accent: rgba(99, 102, 241, 0.35);
+  --glass-border: rgba(15, 23, 42, 0.07);
+  --hover-subtle: rgba(15, 23, 42, 0.04);
+  --hover-faint: rgba(15, 23, 42, 0.025);
+  --hover-danger: rgba(239, 68, 68, 0.1);
+  --elevation-1: var(--shadow-soft);
+  --elevation-2: var(--shadow-raised);
+  --elevation-3: var(--shadow-raised-lg);
+  --liquid-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --aura-glow: var(--shadow-accent);
+  --aura-selected: var(--shadow-accent-hover);
+  --aura-glow-weak: var(--shadow-soft);
+  --glow-card-hover: var(--shadow-raised-lg);
+  --shadow-glass: var(--shadow-raised);
+  --soft-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1); /* stylekit --soft-shadow */
+}
+
+/* ===================== 暗色主题 ===================== */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --cream-rgb: 20 22 26; /* #14161a 页面底色 */
+  --paper-rgb: 30 33 39; /* #1e2127 卡片 */
+  --sunken-rgb: 16 18 22; /* #101216 内凹井 */
+  --sand-rgb: 255 255 255;
+  --sand-a: 0.08;
+
+  --ink-rgb: 238 241 246; /* #eef1f6 */
+  --mist-rgb: 154 163 178; /* #9aa3b2 */
+
+  /* 暗底上 Indigo 需提亮才够对比，故主色上移到 indigo-400 */
+  --pine-rgb: 129 140 248; /* #818cf8 */
+  --pine-deep-rgb: 99 102 241;
+  --pine-soft-rgb: 129 140 248;
+  --pine-soft-a: 0.16;
+  --rose-rgb: 244 114 182; /* #f472b6 */
+  --rose-soft-rgb: 244 114 182;
+  --rose-soft-a: 0.14;
+
+  --amber-rgb: 251 191 36; /* #fbbf24 */
+  --amber-deep-rgb: 245 158 11;
+  --amber-soft-rgb: 251 191 36;
+  --amber-soft-a: 0.14;
+  --clay-rgb: 248 113 113; /* #f87171 */
+  --clay-deep-rgb: 239 68 68;
+  --clay-soft-rgb: 248 113 113;
+  --clay-soft-a: 0.14;
+  --moss-rgb: 52 211 153; /* #34d399 */
+  --moss-soft-rgb: 52 211 153;
+  --moss-soft-a: 0.14;
+
+  --rest-day-rgb: 35 38 45; /* #23262d */
+  --rest-day-band-rgb: 255 255 255;
+  --rest-day-band-a: 0.05;
+
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-raised: 0 10px 40px -10px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+  --shadow-raised-lg: 0 20px 50px -12px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 24px 70px -12px rgba(0, 0, 0, 0.8);
+  --shadow-pressed:
+    inset 3px 3px 8px rgba(0, 0, 0, 0.45), inset -3px -3px 8px rgba(255, 255, 255, 0.04);
+  --shadow-accent: 0 10px 24px -6px rgba(99, 102, 241, 0.5);
+  --shadow-accent-hover: 0 14px 32px -6px rgba(99, 102, 241, 0.65);
+  --focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.45);
+
+  --ambient-1: rgba(129, 140, 248, 0.07);
+  --ambient-2: rgba(244, 114, 182, 0.05);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.24);
+
+  --color-cream: #14161a;
+  --color-paper: #1e2127;
+  --color-sand: rgba(255, 255, 255, 0.08);
+  --color-ink: #eef1f6;
+  --color-mist: #9aa3b2;
+  --color-pine: #818cf8;
+  --color-amber: #fbbf24;
+  --color-clay: #f87171;
+  --color-rest-day: #23262d;
   --color-rest-day-band: rgba(255, 255, 255, 0.05);
 
-  /* 规范令牌镜像 */
-  --accent-default: #6ea8fe;
-  --accent-hover: #9dc5fe;
-  --accent-muted: rgba(110, 168, 254, 0.14);
-  --accent-glow: rgba(110, 168, 254, 0.25);
-  --accent-purple: #a78bfa;
-  --accent-gradient: linear-gradient(135deg, #6ea8fe, #a78bfa);
-  --semantic-success: #56d48c;
-  --semantic-warning: #e5b042;
-  --semantic-danger: #f06548;
-  --text-primary: #f7f7fa;
-  --text-secondary: #a0a0a8;
-  --text-tertiary: #6e6e78;
-  --border-default: rgba(255, 255, 255, 0.12);
+  --accent-default: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-muted: rgba(129, 140, 248, 0.16);
+  --accent-glow: rgba(129, 140, 248, 0.3);
+  --accent-purple: #f472b6;
+  --accent-gradient: linear-gradient(135deg, #818cf8, #f472b6);
+  --semantic-success: #34d399;
+  --semantic-warning: #fbbf24;
+  --semantic-danger: #f87171;
+  --text-primary: #eef1f6;
+  --text-secondary: #9aa3b2;
+  --text-tertiary: #6b7280;
+  --border-default: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.12);
-  --border-accent: rgba(110, 168, 254, 0.35);
-  --glass-border: rgba(255, 255, 255, 0.06);
-  --hover-subtle: rgba(255, 255, 255, 0.06);
-  --hover-faint: rgba(255, 255, 255, 0.04);
-  --hover-danger: rgba(240, 101, 72, 0.12);
-  --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --elevation-2: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --elevation-3: 0 8px 24px rgba(0, 0, 0, 0.6);
-  --liquid-ease: cubic-bezier(0.4, 0, 0.2, 1.3);
-  --aura-glow: 0 0 20px rgba(124, 90, 250, 0.28);
-  --aura-selected: 0 0 26px rgba(124, 90, 250, 0.5);
-  --aura-glow-weak: 0 0 14px rgba(124, 90, 250, 0.16);
-  --glow-card-hover: 0 0 20px rgba(110, 168, 254, 0.08);
-  --shadow-glass: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --border-accent: rgba(129, 140, 248, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --hover-subtle: rgba(255, 255, 255, 0.05);
+  --hover-faint: rgba(255, 255, 255, 0.03);
+  --hover-danger: rgba(248, 113, 113, 0.16);
 }
 
 @layer base {
@@ -61,11 +234,11 @@
 
   body {
     @apply bg-cream text-ink font-body;
-    /* v0.4 灰底 + 更弱、更暖的 Aura 环境光（opacity ≤ 0.03，不抢视线——PRD B.3 不照抄清单） */
+    /* 极弱环境光（opacity ≤ 0.07，只做氛围不抢视线） */
     background:
-      radial-gradient(1200px 600px at 15% -5%, rgba(110, 168, 254, 0.03), transparent 60%),
-      radial-gradient(1000px 500px at 90% 0%, rgba(167, 139, 250, 0.025), transparent 60%),
-      #26262a;
+      radial-gradient(1200px 600px at 12% -8%, var(--ambient-1), transparent 60%),
+      radial-gradient(900px 500px at 92% 0%, var(--ambient-2), transparent 60%),
+      rgb(var(--cream-rgb) / 1);
   }
 
   h1,
@@ -76,54 +249,69 @@
   }
 
   ::selection {
-    background: var(--accent-muted);
-    color: var(--text-primary);
+    background: rgb(var(--pine-rgb) / 0.18);
+    color: rgb(var(--ink-rgb) / 1);
   }
 
-  /* 焦点统一 accent（规范 §6 焦点可见） */
-  :focus-visible {
-    outline: 2px solid var(--accent-default);
-    outline-offset: 2px;
+  /* ---------------- Soft UI 全局手感兜底（第 2 阶段） ----------------
+     全库 48 个组件文件不可能逐个手改，这里在 base 层给所有可交互元素补上
+     Cloud Float / Pillow Press / Halo Focus 的默认行为。
+     全部用 :where() 把特异性压到 0 —— 任何组件自己的 Tailwind utility
+     或 .soft-* 类都能随时覆盖，不会打架。 */
+
+  /* 1. Halo Focus：键盘聚焦时的主色光晕，取代旧版 2px 硬描边。
+        叠加写法保留元素原有阴影，避免聚焦瞬间「塌陷」。 */
+  :where(*):focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring), var(--tw-shadow, 0 0 #0000);
+  }
+
+  /* 2. 统一过渡：可交互元素默认 200ms 缓动，避免生硬的瞬变 */
+  :where(button, [role='button'], a[href], summary, input, select, textarea) {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 200ms;
+    transition-timing-function: var(--liquid-ease);
+  }
+
+  /* 3. Pillow Press：按下回弹。
+        刻意不含 input/select/textarea —— 输入框按下不该缩小，否则打字时抖。
+        disabled 与 aria-disabled 不参与。 */
+  :where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):active {
+    transform: scale(0.97);
   }
 }
 
-/* ------------------------------ 玻璃分级（规范 §4.1 统一结构不可省略） ------------------------------ */
-/* 统一结构：background(glass) + backdrop-filter(blur) + border + 顶部高光 inset + 内辉光 inset + 外投影 */
+/* ------------------------------ 三级表面（原玻璃分级，类名保持不变） ------------------------------ */
+/* Soft UI 不再用 backdrop-blur：三层靠「外凸 / 平铺 / 内凹」的阴影区分层次，描边只做 1px 提示。
+   48 处引用、23 个文件的 glass-* 类名全部沿用，无需逐个改文件。 */
+
+/* 每个表面类都额外写入 --tw-shadow：
+   聚焦光晕（.soft-focus-halo）是 box-shadow 实现的，若不做这层登记，
+   光晕会「替换」掉元素原有的外凸阴影，聚焦瞬间卡片看起来像塌陷下去。
+   登记后光晕可以叠加在既有阴影之上（见 .soft-focus-halo 的组合写法）。 */
 
 .glass-strong {
-  background: rgba(66, 68, 74, 0.92);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 0 40px rgba(110, 168, 254, 0.05),
-    0 8px 24px rgba(0, 0, 0, 0.5);
+  --tw-shadow: var(--shadow-raised-lg);
+  background: rgb(var(--paper-rgb) / 1);
+  border: 1px solid rgb(var(--sand-rgb) / var(--sand-a));
+  box-shadow: var(--shadow-raised-lg);
 }
 
 .glass-medium {
-  background: rgba(63, 65, 71, 0.82);
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 0 40px rgba(110, 168, 254, 0.05),
-    0 4px 24px rgba(0, 0, 0, 0.42);
+  --tw-shadow: var(--shadow-raised);
+  background: rgb(var(--paper-rgb) / 1);
+  border: 1px solid rgb(var(--sand-rgb) / var(--sand-a));
+  box-shadow: var(--shadow-raised);
 }
 
 .glass-light {
-  background: rgba(58, 60, 66, 0.6);
-  backdrop-filter: blur(8px) saturate(100%);
-  -webkit-backdrop-filter: blur(8px) saturate(100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 32px rgba(110, 168, 254, 0.04),
-    0 2px 12px rgba(0, 0, 0, 0.32);
+  --tw-shadow: var(--shadow-pressed);
+  background: rgb(var(--sunken-rgb) / 1);
+  border: 1px solid rgb(var(--sand-rgb) / var(--sand-a));
+  box-shadow: var(--shadow-pressed);
 }
 
-/* ------------------------------ 虹彩描边（规范 §4.2：::before + mask 1px，不占用布局） ------------------------------ */
+/* ------------------------------ 虹彩描边 → 弱化为主色细环（1px，不占布局） ------------------------------ */
 
 .iridescent-border {
   position: relative;
@@ -135,33 +323,141 @@
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(110, 168, 254, 0.85),
-    rgba(167, 139, 250, 0.7) 50%,
-    rgba(240, 171, 252, 0.55)
-  );
+  background: rgb(var(--pine-rgb) / 0.32);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
 }
 
-/* ------------------------------ Aura 光晕（规范 §4.3） ------------------------------ */
+/* ------------------------------ Aura 光晕 → 主色柔和投影 ------------------------------ */
 
 .glow-aura {
-  box-shadow: 0 0 20px rgba(124, 90, 250, 0.28);
+  box-shadow: var(--shadow-accent);
 }
 
 .glow-aura-weak {
-  box-shadow: 0 0 14px rgba(124, 90, 250, 0.16);
+  box-shadow: var(--shadow-soft);
 }
 
 .glow-aura-selected {
-  box-shadow: 0 0 26px rgba(124, 90, 250, 0.5);
+  box-shadow: var(--shadow-accent-hover);
 }
 
-/* ------------------------------ 液态浮层动效（规范 §7） ------------------------------ */
+/* ------------------------------ Soft UI 核心工具类（第 1 阶段交付） ------------------------------ */
+
+/* 1. 外凸：卡片/面板的默认浮起 */
+.soft-shadow-raised {
+  box-shadow: var(--shadow-raised);
+}
+
+/* 2. 内凹：输入框、选中态、按下的凹陷 */
+.soft-shadow-pressed {
+  box-shadow: var(--shadow-pressed);
+}
+
+/* 3. 悬浮上浮（Cloud Float）：hover 微微抬起 + 阴影扩散 */
+.soft-hover-float {
+  transition:
+    transform 200ms var(--liquid-ease),
+    box-shadow 200ms var(--liquid-ease);
+}
+
+.soft-hover-float:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-raised-lg);
+}
+
+/* 卡片版：幅度更大、时长更长 */
+.soft-hover-lift {
+  transition:
+    transform 300ms var(--liquid-ease),
+    box-shadow 300ms var(--liquid-ease);
+}
+
+.soft-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-raised-lg);
+}
+
+/* 按下回弹（Pillow Press） */
+.soft-press:active {
+  transform: scale(0.97);
+}
+
+/* 4. 光晕聚焦（Halo Focus）：摒弃硬描边，用 3px 主色环 */
+/* 光晕「叠加」而非「替换」：先画 3px 主色环，再补回元素原有的阴影（--tw-shadow 由
+   .soft-card / .glass-* 登记，或由 Tailwind 的 shadow-* utility 写入）。
+   没有既有阴影时退化为一个透明占位阴影，不会报错。 */
+.soft-focus-halo:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring), var(--tw-shadow, 0 0 #0000);
+}
+
+/* —— 组合件：卡片 / 内凹井 / 主按钮 / 幽灵按钮 / 输入框 / 图标底 —— */
+
+.soft-card {
+  --tw-shadow: var(--shadow-raised);
+  background: rgb(var(--paper-rgb) / 1);
+  border: 1px solid rgb(var(--sand-rgb) / var(--sand-a));
+  box-shadow: var(--shadow-raised);
+}
+
+.soft-well {
+  --tw-shadow: var(--shadow-pressed);
+  background: rgb(var(--sunken-rgb) / 1);
+  box-shadow: var(--shadow-pressed);
+}
+
+.soft-btn-primary {
+  background: rgb(var(--pine-rgb) / 1);
+  color: #fff;
+  box-shadow: var(--shadow-accent);
+  transition:
+    transform 200ms var(--liquid-ease),
+    box-shadow 200ms var(--liquid-ease);
+}
+
+.soft-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-accent-hover);
+}
+
+.soft-btn-primary:active {
+  transform: scale(0.97);
+}
+
+.soft-btn-ghost {
+  background: rgb(var(--sunken-rgb) / 1);
+  color: rgb(var(--ink-rgb) / 1);
+  transition: background-color 200ms var(--liquid-ease);
+}
+
+.soft-btn-ghost:hover {
+  background: rgb(var(--sand-rgb) / 0.06);
+}
+
+.soft-input {
+  background: rgb(var(--sunken-rgb) / 1);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-pressed);
+  transition:
+    box-shadow 200ms var(--liquid-ease),
+    background-color 200ms var(--liquid-ease);
+}
+
+.soft-input:focus {
+  background: rgb(var(--paper-rgb) / 1);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.soft-icon {
+  border-radius: 9999px;
+  background: rgb(var(--pine-rgb) / 0.1);
+}
+
+/* ------------------------------ 液态浮层动效（保留） ------------------------------ */
 
 @keyframes menu-fade-in {
   from {
@@ -178,33 +474,39 @@
   animation: menu-fade-in 200ms var(--liquid-ease) both;
 }
 
-/* 主行动按钮 Aura 渐变（重点行动点：新建项目 / 对话框确认等可叠加） */
+/* 主行动按钮：旧名 btn-aura 保留，从紫蓝渐变改为 Indigo 实心 + 主色柔光 */
 .btn-aura {
-  background: linear-gradient(135deg, #6ea8fe, #a78bfa);
+  background: rgb(var(--pine-rgb) / 1);
   color: #fff;
-  box-shadow: 0 0 20px rgba(110, 168, 254, 0.28);
-  transition: filter 150ms ease-out, box-shadow 150ms ease-out;
+  box-shadow: var(--shadow-accent);
+  transition:
+    transform 200ms var(--liquid-ease),
+    box-shadow 200ms var(--liquid-ease);
 }
 
 .btn-aura:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 0 26px rgba(124, 90, 250, 0.4);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-accent-hover);
 }
 
-/* ------------------------------ 暗色滚动条（规范 §5.6：6px） ------------------------------ */
+.btn-aura:active {
+  transform: scale(0.97);
+}
+
+/* ------------------------------ 滚动条（跟随主题） ------------------------------ */
 
 ::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
+  height: 8px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 3px;
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: var(--scrollbar-thumb-hover);
 }
 
 ::-webkit-scrollbar-track {
@@ -244,7 +546,7 @@
   animation: dialog-pop 160ms ease-out both;
 }
 
-/* ------------------------------ 无障碍：prefers-reduced-motion 关闭重动效（blur/scale/回弹） ------------------------------ */
+/* ------------------------------ 无障碍：prefers-reduced-motion 关闭重动效 ------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {
   .menuFadeIn,
@@ -253,24 +555,66 @@
     animation: none;
   }
 
-  .glass-strong,
-  .glass-medium,
-  .glass-light {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+  .soft-hover-float:hover,
+  .soft-hover-lift:hover,
+  .btn-aura:hover,
+  .soft-btn-primary:hover {
+    transform: none;
+  }
+
+  .soft-press:active,
+  .btn-aura:active,
+  .soft-btn-primary:active {
+    transform: none;
+  }
+
+  /* 全局兜底层（base 内的 Pillow Press / 统一过渡）也要一并关掉。
+     这段是 unlayered 的，优先级高于 @layer base，可以覆盖。 */
+  :where(button, [role='button'], a[href], summary):not(:disabled):not([aria-disabled='true']):active {
+    transform: none;
+  }
+
+  :where(button, [role='button'], a[href], summary, input, select, textarea) {
+    transition-duration: 1ms;
   }
 }
 
-/* ------------------------------ v0.3 变更 E：日程表打印视图（与暗色解耦，强制浅色） ------------------------------ */
+/* ------------------------------ 日程表打印视图：与主题解耦，强制浅色 ------------------------------ */
 
-/* A4 纸面（v0.4.1：屏幕预览即白纸，导出 / 打印所见即所得） */
+/* A4 纸面（屏幕预览即白纸，导出 / 打印所见即所得） */
 .a4-page {
   background: #fff;
   color: #1e293b;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
 }
 
+/* 打印时把暗色令牌整体拉回亮色，保证导出 PDF 不受当前主题影响。
+   列出 [data-theme='dark'] 是为了压过它的更高特异性。 */
 @media print {
+  :root[data-theme='dark'],
+  :root {
+    color-scheme: light;
+    --cream-rgb: 248 250 252;
+    --paper-rgb: 255 255 255;
+    --sunken-rgb: 241 245 249;
+    --sand-rgb: 15 23 42;
+    --sand-a: 0.07;
+    --ink-rgb: 31 41 55;
+    --mist-rgb: 107 114 128;
+    --pine-rgb: 99 102 241;
+    --rose-rgb: 236 72 153;
+    --amber-rgb: 245 158 11;
+    --clay-rgb: 239 68 68;
+    --moss-rgb: 16 185 129;
+    --rest-day-rgb: 238 242 247;
+    --shadow-raised: 0 1px 3px rgba(15, 23, 42, 0.08);
+    --shadow-raised-lg: 0 1px 3px rgba(15, 23, 42, 0.08);
+    --shadow-overlay: none;
+    --shadow-pressed: none;
+    --ambient-1: transparent;
+    --ambient-2: transparent;
+  }
+
   @page {
     size: A4;
     margin: 14mm;
@@ -326,7 +670,7 @@
     font-size: 11px;
   }
 
-  /* A4 分页（v0.4.1）：去掉屏幕装饰，每页单独一张纸 */
+  /* A4 分页：去掉屏幕装饰，每页单独一张纸 */
   main {
     max-width: none !important;
     margin: 0 !important;

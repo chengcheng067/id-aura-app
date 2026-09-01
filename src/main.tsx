@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 
 import { RepoProvider } from './di/repository.provider';
+import { initTheme } from './hooks/useTheme';
 import './styles/global.css';
 import { AppShell } from './components/layout/AppShell';
 import { HomeRouteGuard } from './components/layout/HomeRouteGuard';
@@ -51,6 +52,11 @@ export const router = createBrowserRouter(
  *   Router —— 三页面 SPA 路由。
  *   StrictMode —— 开发期放大副作用信号（离线应用首屏数据装载均为幂等操作，双调无害）。
  */
+// 主题必须在首帧渲染前落到 <html data-theme>。
+// index.html 里的同步内联脚本已经防过一次首屏闪白，这里再跑一次是为了接管系统偏好监听；
+// 两者读同一份 localStorage，结果一致，不会打架。
+initTheme();
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <RepoProvider>

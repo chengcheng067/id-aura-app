@@ -10,6 +10,7 @@ import { useProjectsStore } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { useRoleGuard, countActiveAdmins } from '../../hooks/useRoleGuard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ImeInput } from '../common/ImeInput';
 
 /**
  * 成员管理区（首页内嵌）：列表 / 新增 / 重命名 / 停用 / 设管理员 / 取消管理员。
@@ -96,20 +97,20 @@ export function MembersPageSection(): JSX.Element | null {
 
       {adding && (
         <div className="mb-4 grid grid-cols-1 gap-2 rounded-lg border border-pine/40 bg-cream p-3 md:grid-cols-[1fr_120px_160px_auto]">
-          <input
+          <ImeInput
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="姓名 *"
             className="rounded-md border border-sand bg-paper px-2 py-1.5 text-sm outline-none focus:border-pine"
           />
-          <input
+          <ImeInput
             value={role}
             onChange={(e) => setRole(e.target.value)}
             placeholder="角色（如绘图员）"
             className="rounded-md border border-sand bg-paper px-2 py-1.5 text-sm outline-none focus:border-pine"
           />
-          <input
+          <ImeInput
             value={contact}
             onChange={(e) => setContact(e.target.value)}
             placeholder="联系方式"
@@ -212,7 +213,7 @@ function MemberRow({
 
       {editing ? (
         <>
-          <input
+          <ImeInput
             autoFocus
             value={editName}
             onChange={(e) => setEditName(e.target.value)}

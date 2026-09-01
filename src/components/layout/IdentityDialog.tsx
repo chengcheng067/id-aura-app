@@ -11,6 +11,7 @@ import { createMemberActions } from '../../store/useMembersStore';
 import { ChangxiaError, MemberRoleKind } from '../../core/types/enums';
 import type { Member } from '../../core/types/entities';
 import { Modal } from '../common/Modal';
+import { ImeInput } from '../common/ImeInput';
 
 /**
  * 身份进入对话框（增量架构 3.3 状态机 UI 承载）：
@@ -165,15 +166,21 @@ export function IdentityDialog(): JSX.Element | null {
               ? '请填写你的姓名，系统会创建/匹配管理员身份。'
               : '请输入你的姓名（仅在本机匹配，不会展示其他成员名单）。'}
           </p>
-          <input
+          <ImeInput
             ref={inputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') void submit();
+              // 仅在非输入法组合状态接受 Enter，避免 IME 回车被误提交
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void submit();
+              }
             }}
             placeholder="你的姓名"
             disabled={busy}
+            autoComplete="off"
+            spellCheck={false}
             className="w-full rounded-md border border-sand bg-paper px-3 py-2 text-sm outline-none focus:border-pine"
           />
           <div className="flex justify-end gap-2">

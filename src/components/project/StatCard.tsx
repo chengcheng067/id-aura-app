@@ -36,18 +36,19 @@ export function StatCard({
   const t = TONE_CLASS[tone];
 
   return (
-    <div className="glass-medium flex min-w-0 flex-1 flex-col gap-3.5 rounded-[18px] border border-sand p-5">
+    // 统计卡是纯展示、不可点击：只做阴影呼吸，不加位移（位移会误导成可点）
+    <div className="soft-card flex min-w-0 flex-1 flex-col gap-3 rounded-3xl p-4 transition-shadow duration-300 ease-in-out hover:shadow-raised-lg md:p-5">
       <div className="flex items-center justify-between">
         <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${t.soft}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.soft}`}
           aria-hidden
         >
-          <span className={`text-[16px] ${t.text}`}>{icon}</span>
+          <span className={`text-[15px] ${t.text}`}>{icon}</span>
         </span>
 
         {trend ? (
           <span
-            className={`flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-medium ${t.soft} ${t.text}`}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${t.soft} ${t.text}`}
           >
             <span aria-hidden>{trendDown ? '↘' : '↗'}</span>
             {trend}
@@ -55,8 +56,8 @@ export function StatCard({
         ) : null}
       </div>
 
-      <span className="text-[32px] font-bold leading-[38px] text-ink">{value}</span>
-      <span className="truncate text-sm text-mist">{label}</span>
+      <span className="text-[28px] font-bold leading-[34px] text-ink">{value}</span>
+      <span className="truncate text-[13px] text-mist">{label}</span>
     </div>
   );
 }

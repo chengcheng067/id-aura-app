@@ -96,6 +96,32 @@ export class LocalProjectsRepository implements IProjectsRepository {
   async archive(id: string, archived: boolean): Promise<void> {
     await this.update(id, { status: archived ? ProjectStatus.Archived : ProjectStatus.Active });
   }
+
+  /**
+   * 永久删除项目（级联清理其下 stages / tasks / stageLogs / assignments）。
+   * Dexie 不加物理外键，需在本库事务内按外键顺序手工清除。
+   */
+  async remove(id: string): Promise<void> {
+    try {
+      const stageIds = (await this.db.stages.where('projectId').equals(id).primaryKeys()) as string[];
+      const taskIds = (await this.db.tasks.where('projectId').equals(id).primaryKeys()) as string[];
+      await this.db.transaction('rw', this.db.tasks, this.db.stages, this.db.stageLogs, this.db.assignments, this.db.projects, async () => {
+        if (stageIds.length > 0) await this.db.stageLogs.where('stageId').anyOf(stageIds).delete();
+        if (taskIds.length > 0) {
+          await this.db.assignments.where('taskId').anyOf(taskIds).delete();
+          await this.db.tasks.bulkDelete(taskIds);
+        }
+        if (stageIds.length > 0) await this.db.stages.bulkDelete(stageIds);
+        await this.db.projects.delete(id);
+      });
+    } catch (err) {
+      throw new ChangxiaError(
+        ChangxiaErrorCode.Storage,
+        '项目删除失败，数据已回滚。',
+        err,
+      );
+    }
+  }
 }
 
 /** 仅复制值为 undefined 之外的键（PUT 合并语义的基础工具） */

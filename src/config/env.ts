@@ -33,16 +33,22 @@ function readEnvSource(envSource: ImportMeta['env'], runtime?: RuntimeAppEnv): {
 
 /**
  * 把 apiBaseUrl 规整成最终可用的 fetch 基址。
- * 绿联 Docker 应用是 IP:端口直连（根路径 /），不走系统网关、无 /<proxy_path>/ 前缀，
- * 故 origin-relative 的 /api 原样返回即可，无需拼接任何前缀。
- * - 绝对地址（http(s)://...）：去尾部斜杠返回。
- * - origin-relative（/api）：原样返回（可含查询/子路径，仅去尾斜杠）。
+ * 绿联 Docker 应用是 IP:端口直连（根路径 /），nginx 以 `location /api/` 反代到后端容器，
+ * 故 baseUrl 必须以 `/api` 结尾——服务端所有路由统一前缀 `/api`（见 docs/api-contract.md）。
+ *
+ * 这里做「防呆归一化」：用户可能填 `/api`、`http://NAS-IP:7788/api`（正确），
+ * 也可能填 `http://NAS-IP:7788`（直觉指向后端容器，漏了 `/api`）。无论哪种，
+ * 只要 baseUrl 非空且不以 `/api` 结尾，就自动补上，避免 remote 模式整条链路 404 的无头苍蝇问题。
+ * - 绝对地址（http(s)://...）：去尾部斜杠，若不以 /api 结尾则补。
+ * - origin-relative（/api）：原样返回（仅去尾斜杠）。
+ * - 空值：返回 ''（数据源非 remote 时忽略）。
  */
 function resolveApiBase(raw: string): string {
   const trimmed = (raw ?? '').trim();
   if (!trimmed) return '';
-  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, '');
-  return trimmed.replace(/\/+$/, '');
+  const withoutTrailing = trimmed.replace(/\/+$/, '');
+  if (/\/api$/i.test(withoutTrailing)) return withoutTrailing;
+  return `${withoutTrailing}/api`;
 }
 
 /** 解析 Vite 环境变量为强类型配置（非法值一律回落 local，绝不抛异常阻断启动） */

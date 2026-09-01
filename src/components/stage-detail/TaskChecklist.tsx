@@ -6,11 +6,8 @@ import { Check, Plus, Trash2, Users, X } from 'lucide-react';
 import type { Member, Stage, Task } from '../../core/types/entities';
 import { createTaskActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
-import {
-  useRoleGuard,
-  canMemberToggleTask,
-  taskAssigneeIds,
-} from '../../hooks/useRoleGuard';
+import { useRoleGuard, canMemberToggleTask, taskAssigneeIds } from '../../hooks/useRoleGuard';
+import { ImeInput } from '../common/ImeInput';
 
 /**
  * checkbox 清单：增删改 / 多选指派（多人参与）/ 截止日 / 勾选完成（勾选写指派流水留痕）。
@@ -286,7 +283,7 @@ export function TaskChecklist({
       {!isMember &&
         (adding ? (
           <div className="mt-2 flex items-center gap-2">
-            <input
+            <ImeInput
               autoFocus
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}

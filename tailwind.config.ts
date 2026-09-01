@@ -1,94 +1,145 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * ID 系列「液态玻璃」design token 唯一来源（共享知识铁律 8；v0.3 变更 B 别名映射）。
- * 组件内禁写裸色值 hex，一律引用这里的命名 token。
+ * ID 系列「Soft UI」design token 映射层（v0.5 双主题）
  *
- * v0.4 策略：旧 token 名（cream/paper/sand/ink/mist/pine/amber/clay/stage）**直接重映射**为
- * 灰底液态玻璃新值——30+ 组件引用的 `bg-cream`/`bg-paper`/`border-sand`/`text-pine` 等 className
- * 一个不改，全站自动换肤；玻璃类/虹彩/Aura 由 global.css utility 增量叠加（架构 3.2 映射表）。
- * 亮色主题 `.theme-light` 明确不做（PRD 待确认 6 默认：仅暗色基线）。
+ * 职责边界（重要）：
+ *   - **色值本身不在本文件**，全部住在 src/styles/global.css 的 CSS 变量里
+ *     （:root = 亮色默认，:root[data-theme='dark'] = 暗色）；
+ *   - 本文件只负责「旧 token 名 → rgb(var(--x-rgb) / …)」的映射，
+ *     因此 30+ 组件里的 bg-cream / bg-paper / border-sand / text-pine 一个 className 都不用改，
+ *     随 <html data-theme> 整体换肤。
+ *   - 组件内仍禁写裸色值 hex，一律引用这里的命名 token。
+ *
+ * 透明度修饰符（bg-pine/20、border-sand/60 等 50 处用法）如何生效：
+ *   颜色值里预留 <alpha-value> 占位符，Tailwind 遇到 /20 就把它替换成 0.2，无修饰符时替换为 1。
+ *   变量 --{name}-a 是该色的「默认 alpha」，让 sand 这类本就半透明的描边
+ *   在不写修饰符时也是正确的淡描边，写 /60 时则变成 0.07×0.6 的相对淡度。
  */
+const c = (name: string, fallbackAlpha = 1): string =>
+  `rgb(var(--${name}-rgb) / calc(var(--${name}-a, ${fallbackAlpha}) * <alpha-value>))`;
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}', './tests/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        /** surface-base 应用底色（v0.4.1 对比度微调：#2a2a2c → #26262a，压深让前景浮起） */
-        cream: '#26262a',
-        /** surface-raised 卡片/面板底（v0.4.1 对比度微调：#353538 → #3a3a40，提亮拉开层次） */
-        paper: '#3a3a40',
-        /** glass-border / hover-subtle（v0.4.1 对比度微调：0.08 → 0.12，边界更清晰） */
-        sand: 'rgba(255,255,255,0.12)',
-        /** text-primary 主文字（v0.4 稍暖白 #f7f7fa） */
-        ink: '#f7f7fa',
-        /** text-secondary 弱文字（v0.4 灰底次级 #a0a0a8） */
-        mist: '#a0a0a8',
-        /** accent-default 主操作/链接/选中（主行动按钮另用 Aura 渐变） */
+        /** surface-base 应用底色（亮 #f8fafc / 暗 #14161a） */
+        cream: c('cream'),
+        /** surface-raised 卡片/面板底（亮 #fff / 暗 #1e2127） */
+        paper: c('paper'),
+        /** surface-sunken 输入框 / 内凹井（亮 #f1f5f9 / 暗 #101216） */
+        sunken: c('sunken'),
+        /** 1px 极弱描边 & hover 底纹（默认 alpha 0.07 / 暗 0.08） */
+        sand: c('sand', 0.07),
+        /** text-primary 主文字 */
+        ink: c('ink'),
+        /** text-secondary 弱文字 */
+        mist: c('mist'),
+        /** accent 主色 Indigo（亮 #6366f1 / 暗 #818cf8） */
         pine: {
-          DEFAULT: '#6ea8fe',
-          soft: 'rgba(110,168,254,0.14)',
-          deep: '#2563eb',
+          DEFAULT: c('pine'),
+          soft: c('pine-soft', 0.1),
+          deep: c('pine-deep'),
+        },
+        /** accent-2 辅色 Pink（用户选定：Indigo 主 + Pink 辅） */
+        rose: {
+          DEFAULT: c('rose'),
+          soft: c('rose-soft', 0.1),
         },
         /** semantic-warning 临期 */
         amber: {
-          DEFAULT: '#e5b042',
-          soft: 'rgba(229,176,66,0.14)',
-          deep: '#d1a03c',
+          DEFAULT: c('amber'),
+          soft: c('amber-soft', 0.12),
+          deep: c('amber-deep'),
+        },
+        /** semantic-success 完成 / 正常 */
+        moss: {
+          DEFAULT: c('moss'),
+          soft: c('moss-soft', 0.1),
         },
         /**
-         * 休息日底纹（公司休息制度 · 渲染层专用，T7）：低饱和中性灰，
-         * 沉于 surface-raised(paper #3a3a40) 与 surface-base(cream #26262a) 之间。
+         * 休息日底纹（公司休息制度 · 渲染层专用，T7）：低饱和中性色，
+         * 语义只走 src/lib/workdays.ts 的 isRestDay，此处仅提供颜色。
          *   DEFAULT —— 月历休息日格 / 时间轴条带（不透明）
          *   band    —— 时间轴 SVG 竖向条带（半透明叠加在行底纹之上，不遮挡阶段彩条）
-         * 语义只走 src/lib/workdays.ts 的 isRestDay，此处仅提供颜色。
          */
         'rest-day': {
-          DEFAULT: '#31313a',
-          band: 'rgba(255,255,255,0.05)',
+          DEFAULT: c('rest-day'),
+          band: c('rest-day-band', 0.04),
         },
         /** semantic-danger 逾期/危险 */
         clay: {
-          DEFAULT: '#f06548',
-          soft: 'rgba(240,101,72,0.14)',
-          deep: '#ff7a5c',
+          DEFAULT: c('clay'),
+          soft: c('clay-soft', 0.1),
+          deep: c('clay-deep'),
         },
         /**
-         * 时间轴九段莫兰迪低饱和彩条（阶段 1→9 顺色）——暗色适配：提亮降饱和，保证 #161616 底上可读。
+         * 时间轴九段莫兰迪低饱和彩条（阶段 1→9 顺色）。
          * 仅集中定义于此，时间轴/图例统一引用 stage.sX；stageColors.ts 镜像同步（两处必须一致）。
          */
         stage: {
-          s1: '#A9C6B7',
-          s2: '#9FBBD0',
-          s3: '#D3B99B',
-          s4: '#BCA8CD',
-          s5: '#C4D2BC',
-          s6: '#93AFBF',
-          s7: '#D5BEAA',
-          s8: '#9CB8A8',
-          s9: '#BBB59D',
+          s1: c('stage-s1'),
+          s2: c('stage-s2'),
+          s3: c('stage-s3'),
+          s4: c('stage-s4'),
+          s5: c('stage-s5'),
+          s6: c('stage-s6'),
+          s7: c('stage-s7'),
+          s8: c('stage-s8'),
+          s9: c('stage-s9'),
         },
       },
       fontFamily: {
-        // 全局无衬线（品牌位「ID Plan」同规范，PRD 待确认 11）
-        display: ['Inter', 'Noto Sans SC', '-apple-system', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
-        body: ['Inter', 'Noto Sans SC', '-apple-system', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
+        // Soft UI 明令禁用 Inter/Roboto/Geist —— 一律走系统无衬线栈（离线优先，不强拉网络字体）
+        display: [
+          'Noto Sans SC',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei',
+          'Helvetica Neue',
+          'Helvetica',
+          'Arial',
+          'sans-serif',
+        ],
+        body: [
+          'Noto Sans SC',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei',
+          'Helvetica Neue',
+          'Helvetica',
+          'Arial',
+          'sans-serif',
+        ],
       },
       boxShadow: {
-        // 暗色 elevation-1（原极浅纸面感 → 暗色阴影体系）
-        soft: '0 1px 3px rgba(0,0,0,0.4)',
-        glass: '0 4px 24px rgba(0,0,0,0.4)',
-        'glow-card-hover': '0 0 20px rgba(110,168,254,0.08)',
+        // 旧键名保留（组件里已有 shadow-soft / shadow-glass / shadow-glow-card-hover 的用法）
+        soft: 'var(--shadow-soft)',
+        glass: 'var(--shadow-raised)',
+        'glow-card-hover': 'var(--shadow-raised-lg)',
+        // Soft UI 新键名：raised（浮起）/ raised-lg（悬浮）/ overlay（弹层）/ pressed（内凹）/ accent（主色）
+        raised: 'var(--shadow-raised)',
+        'raised-lg': 'var(--shadow-raised-lg)',
+        overlay: 'var(--shadow-overlay)',
+        pressed: 'var(--shadow-pressed)',
+        accent: 'var(--shadow-accent)',
       },
       borderRadius: {
-        // 规范 --radius 体系（v0.3 大圆角升级，不破坏布局）
-        DEFAULT: '8px',
-        sm: '4px',
-        md: '8px',
-        lg: '10px',
-        xl: '14px',
-        '2xl': '18px',
-        '3xl': '20px',
+        // Soft UI 大圆角：卡片 rounded-3xl(24) / 按钮·输入 rounded-2xl(16) / 图标 rounded-full
+        sm: '8px',
+        DEFAULT: '12px',
+        md: '12px',
+        lg: '16px',
+        xl: '16px',
+        '2xl': '16px',
+        '3xl': '24px',
         full: '9999px',
       },
       fontSize: {

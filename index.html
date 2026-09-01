@@ -6,7 +6,33 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="theme-color" content="#2a2a2c" />
+    <!-- 浏览器 UI 配色跟随系统深/浅偏好（双主题） -->
+    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)" />
+    <!--
+      首屏防闪：在样式与脚本执行前同步写好 <html data-theme>。
+      优先级：用户显式选择（localStorage 'idplan-theme'）> 系统 prefers-color-scheme。
+      必须与 src/hooks/useTheme.ts 的 STORAGE_KEY 保持一致。
+    -->
+    <script>
+      (function () {
+        try {
+          var v = localStorage.getItem('idplan-theme');
+          var t =
+            v === 'dark' || v === 'light'
+              ? v
+              : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.dataset.theme = t;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+    <!-- 全平台新 logo：蓝 P 白色圆角方块。favicon 复用 public/logo.png（Vite 会把 /logo.png 拷到 dist 根） -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     <meta
       name="description"
       content="《ID Plan》— 室内设计项目节点管理系统：把合同变成一张看得懂的阶段时间轴。"

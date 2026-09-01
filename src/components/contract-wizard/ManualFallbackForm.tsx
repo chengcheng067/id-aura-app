@@ -11,8 +11,10 @@ import { getPresetItems } from '../../core/template/stage-library';
 import { MIN_STAGE_COUNT } from '../../core/template/split';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
+import { toIsoDate } from '../../lib/date';
 import { defaultPresetKeyFor, presetKeyOfItems, StageSelectPanel } from './StageSelectPanel';
 import { Modal } from '../common/Modal';
+import { ImeInput } from '../common/ImeInput';
 
 /**
  * 纯手动兜底建档（与向导并列可达，任何情况下都能建好档）。
@@ -52,7 +54,13 @@ export function ManualFallbackForm({
       setError('项目名称与竣工日为必填。');
       return;
     }
-    if (new Date(endAt).getTime() < new Date(startAt).getTime()) {
+    const startIso = toIsoDate(startAt);
+    const endIso = toIsoDate(endAt);
+    if (!startIso || !endIso) {
+      setError('开始日或竣工日格式不正确，请选择有效日期。');
+      return;
+    }
+    if (endIso < startIso) {
       setError('竣工日不能早于开始日。');
       return;
     }
@@ -63,26 +71,29 @@ export function ManualFallbackForm({
     setSubmitting(true);
     const actions = createProjectActions(repos);
     void (0 as unknown as ConfirmedContractPayload); // 类型引用占位：payload 由 service 组装
-    const project = await actions.createManual({
-      name: name.trim(),
-      type,
-      address: address.trim(),
-      clientName: clientName.trim(),
-      contractAmount: null, // 合同额字段已从建档 UI 移除（数据模型保留，兼容老数据）；此处恒传 null
-      signedAt: null,
-      plannedStartAt: startAt,
-      plannedEndAt: endAt,
-      coverColor: null,
-      stageItems,
-      stagePresetKey: presetKeyOfItems(stageItems),
-      scheduleBasis,
-    });
-    setSubmitting(false);
-    if (project) {
+    try {
+      const project = await actions.createManual({
+        name: name.trim(),
+        type,
+        address: address.trim(),
+        clientName: clientName.trim(),
+        contractAmount: null, // 合同额字段已从建档 UI 移除（数据模型保留，兼容老数据）；此处恒传 null
+        signedAt: null,
+        plannedStartAt: startAt,
+        plannedEndAt: endAt,
+        coverColor: null,
+        stageItems,
+        stagePresetKey: presetKeyOfItems(stageItems),
+        scheduleBasis,
+      });
       onClose();
       void navigate(`/project/${project.id}`);
-    } else {
-      setError('建档失败：请检查日期是否有效。');
+    } catch (err) {
+      // 展示真实原因（含 userMessage），不再用笼统的「请检查日期是否有效」误导用户
+      const userMessage = (err as { userMessage?: string })?.userMessage;
+      setError(userMessage ?? '建档失败，请重试。');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -105,7 +116,7 @@ export function ManualFallbackForm({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="block text-sm">
             <span className="mb-1 block font-medium">项目名称 *</span>
-            <input
+            <ImeInput
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="如「XX餐饮·室内设计」"
@@ -128,7 +139,7 @@ export function ManualFallbackForm({
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">地址</span>
-            <input
+            <ImeInput
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"
@@ -136,7 +147,7 @@ export function ManualFallbackForm({
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">客户名称</span>
-            <input
+            <ImeInput
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               className="w-full rounded-md border border-sand bg-cream px-2 py-1.5 text-sm text-ink outline-none focus:border-pine"

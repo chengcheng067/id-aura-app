@@ -179,4 +179,37 @@ export function registerProjectRoutes(app: FastifyInstance, db: Database.Databas
     ).run(archived ? 'archived' : 'active', nowIso(), id);
     return { ok: true };
   });
+
+  // DELETE /projects/:id —— 永久删除（级联清理阶段/任务/流水），不可恢复
+  app.delete('/api/projects/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const exists = db.prepare('SELECT id FROM projects WHERE id = ?').get(id) as
+      | { id: string }
+      | undefined;
+    if (!exists) {
+      void reply.status(404);
+      return { error: { code: 'not_found', userMessage: '项目不存在或已删除' } };
+    }
+    const stageIds = (
+      db.prepare('SELECT id FROM stages WHERE project_id = ?').all(id) as Array<{ id: string }>
+    ).map((r) => r.id);
+    const taskIds = (
+      db.prepare('SELECT id FROM tasks WHERE project_id = ?').all(id) as Array<{ id: string }>
+    ).map((r) => r.id);
+    const tx = db.transaction(() => {
+      if (stageIds.length > 0) {
+        db.prepare(`DELETE FROM stage_logs WHERE stage_id IN (${stageIds.map(() => '?').join(',')})`).run(...stageIds);
+      }
+      if (taskIds.length > 0) {
+        db.prepare(`DELETE FROM assignments WHERE task_id IN (${taskIds.map(() => '?').join(',')})`).run(...taskIds);
+        db.prepare(`DELETE FROM tasks WHERE id IN (${taskIds.map(() => '?').join(',')})`).run(...taskIds);
+      }
+      if (stageIds.length > 0) {
+        db.prepare(`DELETE FROM stages WHERE id IN (${stageIds.map(() => '?').join(',')})`).run(...stageIds);
+      }
+      db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+    });
+    tx();
+    return { ok: true };
+  });
 }

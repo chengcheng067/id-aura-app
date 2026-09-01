@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Link, useParams } from 'react-router-dom';
 
@@ -6,10 +6,12 @@ import { ArrowLeft, Archive, CalendarRange } from 'lucide-react';
 
 import { useProjectsStore } from '../store/useProjectsStore';
 import { createProjectActions } from '../store/useProjectsStore';
+import { useUiStore } from '../store/useUiStore';
 import { useMembersStore } from '../store/useMembersStore';
 import { useRepos } from '../hooks/useRepos';
 import { useRoleGuard, isRestrictedView, computeRelatedStageIds } from '../hooks/useRoleGuard';
 import { TimelineView, pickActiveStage } from '../components/timeline/TimelineView';
+import { MobileStageList } from '../components/timeline/MobileStageList';
 import { StageDrawer } from '../components/stage-detail/StageDrawer';
 import { CompletionRing } from '../components/common/CompletionRing';
 import { CountdownNumber } from '../components/common/CountdownNumber';
@@ -32,6 +34,18 @@ import { totalDaysInclusive } from '../lib/date';
  * （敏感字段/全量阶段）与写（拖拽改期/归档）权限；未进入且无 currentMember → 无任何
  * 相关阶段 → 直接受限空态。
  */
+/** 视口 <lg(1024px) 判定：手机/平板竖屏用纵向阶段卡片流，平板横屏/桌面用横向时间轴 */
+function useIsNarrowViewport(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 1023px)').matches);
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 1023px)');
+    const onChange = (): void => setNarrow(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
+
 export function ProjectDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const repos = useRepos();
@@ -43,6 +57,7 @@ export function ProjectDetailPage(): JSX.Element {
   const members = useMembersStore((s) => s.members);
   const { role, currentMember } = useRoleGuard();
   const memberView = isRestrictedView(role);
+  const isNarrow = useIsNarrowViewport();
 
   // 相关阶段：管理员 → null（全量）；成员 → 自己相关阶段；未进入 → 空集（受限空态）
   const relatedStageIds = useMemo(
@@ -165,12 +180,23 @@ export function ProjectDetailPage(): JSX.Element {
         </div>
       </div>
 
-      <TimelineView
-        project={project}
-        stages={visibleStages}
-        members={members}
-        memberView={memberView}
-      />
+      {/* 时间轴：平板横屏/桌面(≥lg)用横向时间轴；手机/平板竖屏(<lg)用纵向阶段卡片流（阶段 C） */}
+      {isNarrow ? (
+        <MobileStageList
+          stages={visibleStages}
+          tasks={tasks}
+          members={members}
+          todayIso={todayIso}
+          onOpen={(sid) => useUiStore.getState().openStageDrawer(sid)}
+        />
+      ) : (
+        <TimelineView
+          project={project}
+          stages={visibleStages}
+          members={members}
+          memberView={memberView}
+        />
+      )}
 
       <StageDrawer projectId={project.id} members={members} />
     </div>

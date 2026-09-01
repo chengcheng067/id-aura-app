@@ -132,6 +132,8 @@ function samplePackage() {
 describe('后端 v2 同步链路（NAS remote 数据源）', () => {
   let ctx: Awaited<ReturnType<typeof buildServer>>;
 
+  const nowIso = (): string => new Date().toISOString();
+
   beforeEach(async () => {
     ctx = await buildServer();
   });
@@ -344,5 +346,58 @@ describe('后端 v2 同步链路（NAS remote 数据源）', () => {
     expect(tCols).toEqual(expect.arrayContaining(['assignee_ids']));
 
     legacy.close();
+  });
+
+  it('DELETE /projects/:id 级联删除项目及其阶段/任务/流水', async () => {
+    // 建父项目
+    const pRes = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: {
+        id: 'p-del',
+        name: '待删除项目',
+        type: 'dining',
+        address: '',
+        clientName: '',
+        plannedStartAt: '2026-08-01',
+        plannedEndAt: '2026-10-01',
+      },
+    });
+    expect(pRes.statusCode).toBe(200);
+
+    // 插入阶段 + 任务（模拟服务端真实写入）
+    ctx.db.prepare(
+      `INSERT INTO stages (id, project_id, order_index, name, ratio_percent, start_at, end_at, status, owner_id, visible, resource_path, revision, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run('s-del', 'p-del', 1, '方案设计', 30, '2026-08-01', '2026-08-10', 'not_started', null, 1, null, 1, nowIso());
+    ctx.db.prepare(
+      `INSERT INTO tasks (id, project_id, stage_id, title, done, assignee_id, assignee_ids, due_date, order_index, revision, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run('t-del', 'p-del', 's-del', '出平面图', 0, null, '[]', '2026-08-05', 1, 1, nowIso());
+    ctx.db.prepare(
+      `INSERT INTO stage_logs (id, stage_id, project_id, type, operator_name, created_at)
+       VALUES (?,?,?,?,?,?)`,
+    ).run('log-del', 's-del', 'p-del', 'created', 'system', nowIso());
+
+    // 删除前数量
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM stages WHERE project_id=?').get('p-del') as { c: number }).c).toBe(1);
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM tasks WHERE project_id=?').get('p-del') as { c: number }).c).toBe(1);
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM stage_logs WHERE project_id=?').get('p-del') as { c: number }).c).toBe(1);
+
+    // DELETE
+    const del = await ctx.app.inject({ method: 'DELETE', url: '/api/projects/p-del' });
+    expect(del.statusCode).toBe(200);
+    expect(del.json()).toEqual({ ok: true });
+
+    // 级联清空
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM projects WHERE id=?').get('p-del') as { c: number }).c).toBe(0);
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM stages WHERE project_id=?').get('p-del') as { c: number }).c).toBe(0);
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM tasks WHERE project_id=?').get('p-del') as { c: number }).c).toBe(0);
+    expect((ctx.db.prepare('SELECT COUNT(*) c FROM stage_logs WHERE project_id=?').get('p-del') as { c: number }).c).toBe(0);
+  });
+
+  it('DELETE /projects/:id 对不存在项目返回 404', async () => {
+    const del = await ctx.app.inject({ method: 'DELETE', url: '/api/projects/no-such-id' });
+    expect(del.statusCode).toBe(404);
   });
 });

@@ -6,6 +6,7 @@ import type { Stage } from '../../core/types/entities';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { useProjectsStore } from '../../store/useProjectsStore';
+import { ImeInput } from '../common/ImeInput';
 
 /**
  * 本地资料路径登记 + 打开引导（F12）。
@@ -73,7 +74,7 @@ export function ResourcePathButton({ stage }: { stage: Stage }): JSX.Element {
         </div>
       ) : editing ? (
         <div className="flex items-center gap-2">
-          <input
+          <ImeInput
             autoFocus
             value={pathText}
             onChange={(e) => setPathText(e.target.value)}

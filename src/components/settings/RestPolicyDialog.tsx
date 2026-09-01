@@ -38,7 +38,7 @@ export function RestPolicySettingsButton(): JSX.Element | null {
         className="inline-flex items-center gap-1.5 rounded-md border border-sand bg-paper px-3 py-1.5 text-sm text-mist transition-colors hover:bg-sand hover:text-ink"
         title="公司休息制度（双休 / 单休 / 大小休）"
       >
-        <CalendarDays size={14} /> 休息制度
+        <CalendarDays size={14} /> <span className="hidden 2xl:inline">休息制度</span>
       </button>
       {open && <RestPolicyDialog onClose={() => setOpen(false)} />}
     </>

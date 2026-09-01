@@ -106,9 +106,9 @@ export function Modal({
       aria-label={ariaLabel}
       // z-index 分层：居中弹窗(center)=z-[70] 最高可盖一切；右侧抽屉(right)=z-[60] 属二级浮层，
       // 让其内部冒出的更浅层浮层（如指派弹层 z-[65]）能盖在抽屉之上。抽屉自身不参与 center 的顶层竞争。
-      className={`fixed inset-0 ${
-        placement === 'right' ? 'z-[60] bg-ink/20' : 'z-[70] bg-[rgba(15,23,42,0.45)] backdrop-blur-[6px]'
-      }`}
+      // Soft UI 不用 backdrop-blur（玻璃拟态）；层次靠统一的主色遮罩 + 面板外凸阴影表达。
+      // 去掉模糊后遮罩要略实一点，否则背景噪点会穿透、压不住层级。
+      className={`fixed inset-0 ${placement === 'right' ? 'z-[60] bg-ink/25' : 'z-[70] bg-ink/45'}`}
     >
       {/* 点击关闭判定放在锚点面板（e.currentTarget）上而非遮罩：因为面板是 flex 容器且覆盖内容区，
           点面板自身的空白区域（子面板之外）即关闭，点子面板内部不关闭。这样居中/右侧抽屉一致生效，
@@ -118,8 +118,12 @@ export function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
+        // 移动端形态：right 抽屉在 <sm(640px) 时改为「从底部滑出、接近全屏」，符合单手操作习惯；
+        // 平板以上恢复右侧滑出。center 弹窗保持居中 + 收缩边距（p-4 → sm:p-6）。
         className={`outline-none flex h-full w-full ${
-          placement === 'right' ? 'justify-end' : 'items-center justify-center p-4 sm:p-6'
+          placement === 'right'
+            ? 'items-end justify-center sm:justify-end'
+            : 'items-center justify-center p-4 sm:p-6'
         }`}
         // 拦截合成 click，阻止其沿 React 组件树冒泡到背后触发器的 onClick（如项目卡片 → 跳转）。
         // 关键：Modal 用 createPortal 只改 DOM 挂载点，React 树仍是调用方的子树，

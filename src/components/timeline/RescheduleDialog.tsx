@@ -8,6 +8,7 @@ import { useMembersStore } from '../../store/useMembersStore';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { Modal } from '../common/Modal';
+import { ImeInput, ImeTextarea } from '../common/ImeInput';
 
 /**
  * 延期原因弹窗（PRD 硬规则 1）：
@@ -107,7 +108,7 @@ export function RescheduleDialog({
               <span className="mb-1 block font-medium">
                 延期原因 <span className="text-clay">*（任一阶段截止日后移必填）</span>
               </span>
-              <textarea
+              <ImeTextarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
@@ -123,7 +124,7 @@ export function RescheduleDialog({
         ) : (
           <label className="block text-sm">
             <span className="mb-1 block font-medium">备注原因（提前/平移可留空）</span>
-            <input
+            <ImeInput
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="w-full rounded-md border border-sand px-2 py-1.5 text-sm outline-none focus:border-pine"

@@ -78,7 +78,9 @@ services:
       retries: 3
 
 volumes:
-  # 具名卷：Docker 套件默认落在 NAS 的 docker 目录。
-  # 升级应用（重建容器）不会丢数据；若需手动备份，可在 NAS 的
-  # Docker 套件 → 存储空间里找到该卷对应目录拷走 changxia.db。
+  # 具名卷 idplan-data：数据实际保存在 NAS 的 Docker 存储空间里。
+  #   - 容器内路径：/data/changxia.db（后端容器通过 CHANGXIA_DB=/data/changxia.db 写入）
+  #   - NAS 宿主机路径：由绿联 Docker 套件自动管理，通常在 /mnt/<存储池>/.ugreen_nas/.../docker/volumes/idplan-data/_data/
+  #   - 备份方法：进绿联「Docker 套件 → 存储空间」，找到 idplan-data 卷，复制 _data/changxia.db 出来即可。
+  # 升级或重建应用容器时，只要保持卷名 idplan-data 不变，数据就不会丢失。
   idplan-data:

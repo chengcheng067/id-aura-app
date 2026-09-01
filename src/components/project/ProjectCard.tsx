@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarRange, MoreHorizontal, Archive } from 'lucide-react';
+import { CalendarRange, MoreHorizontal, Archive, Trash2 } from 'lucide-react';
 
 import type { Member, Project, Stage, Task } from '../../core/types/entities';
 import { PROJECT_TYPE_LABELS, ProjectType } from '../../core/types/enums';
@@ -10,6 +10,7 @@ import { createProjectActions } from '../../store/useProjectsStore';
 import { useNavigate } from 'react-router-dom';
 import { AvatarStack } from '../common/AvatarStack';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ImeInput } from '../common/ImeInput';
 import { Modal } from '../common/Modal';
 import { cn } from '../../lib/cn';
 
@@ -70,6 +71,7 @@ export function ProjectCard({
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState(project.name);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const actions = createProjectActions(repos);
@@ -118,6 +120,14 @@ export function ProjectCard({
     setMenuOpen((v) => !v);
   };
 
+  // 右键直接打开菜单（仅 admin 可见卡片场景）；阻止默认浏览器上下文菜单
+  const openContextMenu = (e: React.MouseEvent): void => {
+    if (!isAdmin) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(true);
+  };
+
   return (
     <div
       role="button"
@@ -129,15 +139,15 @@ export function ProjectCard({
           onOpen();
         }
       }}
+      onContextMenu={openContextMenu}
       aria-current={selected ? 'true' : undefined}
       className={cn(
-        'group flex w-full cursor-pointer flex-col gap-3 rounded-[16px] border p-4 text-left backdrop-blur-[10px] transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine',
-        'shadow-[0_4px_24px_rgba(0,0,0,0.42)] hover:shadow-glow-card-hover',
-        selected
-          ? 'border-[rgba(110,168,254,0.6)] shadow-[0_0_0_1px_rgba(110,168,254,0.28),0_8px_32px_rgba(110,168,254,0.24)]'
-          : 'border-sand glass-medium',
+        // Soft UI 参考形态：.soft-card = bg-paper + 1px 极弱描边 + raised 外凸阴影
+        // Cloud Float 悬浮上浮（-4px / 300ms）+ Halo Focus 光晕聚焦
+        // 选中态改用主色环，取代旧版蓝紫渐变硬描边与 rgba 硬编码底色（那会盖掉暗色主题）
+        'group soft-card flex w-full cursor-pointer flex-col gap-3 rounded-3xl p-4 text-left transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-raised-lg soft-focus-halo md:p-5',
+        selected && 'ring-2 ring-pine/50',
       )}
-      style={selected ? { background: 'rgba(80,82,90,0.94)' } : undefined}
     >
       {/* 标题行：项目名 + ⋯ 更多菜单（独立 button + stopPropagation） */}
       <div className="flex w-full items-start justify-between gap-2">
@@ -152,7 +162,7 @@ export function ProjectCard({
               aria-label="项目更多操作"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="rounded-md p-1 text-mist transition-colors hover:bg-sand hover:text-ink"
+              className="rounded-full p-1.5 text-mist transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-sunken hover:text-pine soft-press soft-focus-halo"
             >
               <MoreHorizontal size={16} aria-hidden />
             </button>
@@ -160,7 +170,7 @@ export function ProjectCard({
             {menuOpen && (
               <div
                 role="menu"
-                className="glass-medium menuFadeIn absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-sand py-1 shadow-soft"
+                className="glass-medium menuFadeIn absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-2xl border border-sand py-1.5 shadow-overlay"
               >
                 <button
                   type="button"
@@ -170,7 +180,7 @@ export function ProjectCard({
                     setMenuOpen(false);
                     setRenameOpen(true);
                   }}
-                  className="w-full px-3 py-2 text-left text-sm text-ink hover:bg-sand"
+                  className="w-full px-3 py-2 text-left text-sm text-ink hover:bg-sunken"
                 >
                   项目重命名
                 </button>
@@ -181,7 +191,7 @@ export function ProjectCard({
                     setMenuOpen(false);
                     window.open(`/project/${project.id}/schedule-print`, '_blank');
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-sand"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-sunken"
                 >
                   <CalendarRange size={14} className="text-mist" aria-hidden />
                   导出日程表
@@ -194,10 +204,22 @@ export function ProjectCard({
                     setMenuOpen(false);
                     setArchiveOpen(true);
                   }}
-                  className="flex w-full items-center gap-2 border-t border-sand px-3 py-2 text-left text-sm text-ink hover:bg-sand disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center gap-2 border-t border-sand px-3 py-2 text-left text-sm text-ink hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Archive size={14} className="text-mist" aria-hidden />
                   归档项目
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDeleteOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 border-t border-sand px-3 py-2 text-left text-sm text-clay hover:bg-clay-soft"
+                >
+                  <Trash2 size={14} aria-hidden />
+                  删除项目
                 </button>
               </div>
             )}
@@ -214,7 +236,7 @@ export function ProjectCard({
       {/* 阶段 tag */}
       <span
         className={cn(
-          'inline-flex max-w-full items-center truncate rounded-[8px] px-2.5 py-1 text-[12px] font-medium',
+          'inline-flex max-w-full items-center truncate rounded-2xl px-3 py-1 text-[12px] font-medium',
           tone.soft,
           tone.text,
         )}
@@ -228,9 +250,9 @@ export function ProjectCard({
           <span className="text-mist">进度</span>
           <span className={cn('font-medium', tone.text)}>{Math.round(percent)}%</span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-[6px] bg-sand">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-sunken">
           <div
-            className={cn('h-full rounded-[6px] transition-all', tone.fill)}
+            className={cn('h-full rounded-full transition-all', tone.fill)}
             style={{ width: `${Math.max(percent, 2)}%` }}
           />
         </div>
@@ -250,10 +272,10 @@ export function ProjectCard({
 
       {/* 重命名弹窗 */}
       <Modal open={renameOpen} onClose={() => setRenameOpen(false)} ariaLabel="项目重命名">
-        <div className="glass-strong iridescent-border dialog-pop w-full max-w-md rounded-2xl p-5 shadow-soft outline-none">
+        <div className="glass-strong iridescent-border dialog-pop w-full max-w-md rounded-3xl p-6 shadow-overlay outline-none">
           <h2 className="font-display text-display-md">项目重命名</h2>
           <p className="mt-1 text-xs text-mist">修改后将同步到项目详情与所有视图。</p>
-          <input
+          <ImeInput
             autoFocus
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
@@ -262,13 +284,13 @@ export function ProjectCard({
             }}
             placeholder="输入新的项目名称"
             aria-label="新的项目名称"
-            className="mt-3 w-full rounded-md border border-sand bg-paper px-3 py-2 text-sm text-ink outline-none placeholder:text-mist focus:border-pine"
+            className="soft-input mt-4 w-full rounded-2xl px-4 py-3 text-sm text-ink outline-none placeholder:text-mist"
           />
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setRenameOpen(false)}
-              className="rounded-md border border-sand px-3 py-1.5 text-sm text-mist transition-colors hover:bg-sand"
+              className="soft-btn-ghost rounded-2xl px-5 py-2.5 text-sm font-medium transition-all duration-200 ease-in-out hover:-translate-y-0.5 soft-press soft-focus-halo"
             >
               取消
             </button>
@@ -276,7 +298,7 @@ export function ProjectCard({
               type="button"
               onClick={confirmRename}
               disabled={!renameValue.trim() || renameValue.trim() === project.name}
-              className="rounded-md px-3 py-1.5 text-sm text-white transition-colors bg-pine hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-40"
+              className="soft-btn-primary rounded-2xl px-5 py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:shadow-none"
             >
               保存
             </button>
@@ -297,6 +319,22 @@ export function ProjectCard({
         onCancel={() => setArchiveOpen(false)}
       >
         确认归档「{project.name}」？归档后将从首页列表隐藏（可在「已归档」区恢复）。
+      </ConfirmDialog>
+
+      {/* 永久删除确认（danger 变体，明确不可恢复） */}
+      <ConfirmDialog
+        open={deleteOpen}
+        title="删除项目"
+        confirmText="删除"
+        danger
+        onConfirm={() => {
+          void actions.removeProject(project.id, project.name);
+          setDeleteOpen(false);
+        }}
+        onCancel={() => setDeleteOpen(false)}
+      >
+        确认删除「{project.name}」？该项目下的所有阶段、任务与操作记录将一并永久删除，{' '}
+        <span className="font-medium text-clay">不可恢复</span>。建议先归档而非删除。
       </ConfirmDialog>
     </div>
   );

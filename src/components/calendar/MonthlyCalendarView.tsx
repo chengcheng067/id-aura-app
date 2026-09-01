@@ -276,7 +276,8 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
                   key={day.date}
                   onClick={() => setSelectedDate(day.date)}
                   className={cn(
-                    'group relative flex min-h-[110px] flex-col gap-1 bg-paper p-2 transition-colors hover:bg-sand/70',
+                    // 结构层级 §mobile-density：手机 min-h 110→120 维持可读但内部更紧（gap 1→0.5、p 2→1.5）
+                    'group relative flex min-h-[110px] flex-col gap-0.5 bg-paper p-1.5 transition-colors hover:bg-sand/70 sm:min-h-[120px]',
                     isRest && 'bg-rest-day/70',
                     day.isSelected && 'ring-1 ring-inset ring-pine',
                     !day.inMonth && 'opacity-60',
@@ -302,7 +303,7 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
                     )}
                   </div>
 
-                  <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+                  <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                     {items.slice(0, 3).map((e) => (
                       <button
                         key={e.project.id}

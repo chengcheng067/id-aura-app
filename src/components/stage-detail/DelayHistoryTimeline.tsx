@@ -26,7 +26,8 @@ export function DelayHistoryTimeline({ logs }: { logs: StageLog[] }): JSX.Elemen
             : false;
         return (
           <li key={l.id} className="relative">
-            <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-paper bg-mist" />
+            {/* Soft UI：圆点用 ring（box-shadow 实现，不占布局空间）替代 border-2 硬描边 */}
+            <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-mist ring-2 ring-paper" />
             <p className="text-sm leading-6">
               <span className={postponed ? 'font-medium text-clay' : 'text-pine-deep'}>
                 {oldEnd} → {newEnd}
