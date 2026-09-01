@@ -10,7 +10,7 @@ import { SaveBackupButton } from './SaveBackupButton';
 import { ThemeToggle } from './ThemeToggle';
 import { LoadBackupButton } from './LoadBackupButton';
 import { RestPolicySettingsButton } from '../settings/RestPolicyDialog';
-import { ExportLogButton } from './ExportLogButton';
+import { SettingsButton } from './SettingsButton';
 import { ImeInput } from '../common/ImeInput';
 import { useRoleGuard } from '../../hooks/useRoleGuard';
 import { useUiStore } from '../../store/useUiStore';
@@ -228,8 +228,8 @@ export function TopBar(): JSX.Element {
                 </div>
               )}
 
-              {/* 导出日志：调试友好，所有角色可用（不限管理员） */}
-              <ExportLogButton />
+              {/* 设置：入口按钮，所有角色可用；导出日志收进设置面板 */}
+              <SettingsButton />
 
               {/* 视图切换（仅首页）：圆角12 容器内 padding4，选中项 圆角9 半透明蓝底蓝字 */}
               {onHome && (

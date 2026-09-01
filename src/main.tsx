@@ -9,7 +9,7 @@ import {
 
 import { RepoProvider } from './di/repository.provider';
 import { initTheme } from './hooks/useTheme';
-import { installGlobalLogCatchers } from './core/services/log.service';
+import { installGlobalLogCatchers, logInfo } from './core/services/log.service';
 import './styles/global.css';
 import { AppShell } from './components/layout/AppShell';
 import { HomeRouteGuard } from './components/layout/HomeRouteGuard';
@@ -61,6 +61,9 @@ initTheme();
 // 全局前端日志：捕获运行时错误/未捕获 Promise 异常/console.error·warn，
 // 写入本地日志，设置界面可一键导出。必须在 React 渲染前挂载，才能网住首帧异常。
 installGlobalLogCatchers();
+
+// 启动埋点：每次页面加载记一条，让用户至少能确认日志系统在工作（否则正常浏览 0 条，导出总是"暂无日志"）。
+logInfo('应用', '页面加载完成');
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
