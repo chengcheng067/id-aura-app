@@ -143,7 +143,7 @@ export function TaskChecklist({
                 <Check size={12} />
               </button>
 
-              <input
+              <ImeInput
                 value={t.title}
                 readOnly={isMember}
                 onChange={(e) => void actions.updateTask(t.id, { title: e.target.value })}

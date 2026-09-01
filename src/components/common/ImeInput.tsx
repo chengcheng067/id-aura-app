@@ -1,10 +1,12 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type {
   KeyboardEvent,
   CompositionEvent,
   InputHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
+
+import { attachImeProbe } from '../../core/services/ime-probe';
 
 /**
  * IME 安全的受控输入控件（`<input>` / `<textarea>`）。
@@ -28,12 +30,24 @@ import type {
  */
 export const ImeInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function ImeInput({ onKeyDown, ...rest }, ref) {
+    const innerRef = useRef<HTMLInputElement>(null);
+    // 诊断探针：挂到真实 input 上，记录用户真实 IME 事件序列（只读监听，不改行为）。
+    // 组件卸载时自动 detach。
+    useEffect(() => {
+      const input = innerRef.current;
+      if (!input) return undefined;
+      return attachImeProbe(input);
+    }, []);
+
+    // 外部 ref 指向真实 DOM input（供 focus() 等使用）。
+    useImperativeHandle(ref, () => innerRef.current as HTMLInputElement, []);
+
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
       if (e.key === 'Enter' && e.nativeEvent.isComposing) return;
       onKeyDown?.(e);
     };
 
-    return <input ref={ref} {...rest} onKeyDown={handleKeyDown} />;
+    return <input ref={innerRef} {...rest} onKeyDown={handleKeyDown} />;
   },
 );
 
@@ -42,12 +56,20 @@ export const ImeTextarea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement>
 >(function ImeTextarea({ onKeyDown, ...rest }, ref) {
+  const innerRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const ta = innerRef.current;
+    if (!ta) return undefined;
+    return attachImeProbe(ta);
+  }, []);
+  useImperativeHandle(ref, () => innerRef.current as HTMLTextAreaElement, []);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === 'Enter' && e.nativeEvent.isComposing) return;
     onKeyDown?.(e);
   };
 
-  return <textarea ref={ref} {...rest} onKeyDown={handleKeyDown} />;
+  return <textarea ref={innerRef} {...rest} onKeyDown={handleKeyDown} />;
 });
 
 // 保留类型引用供外部使用（避免未使用告警）
