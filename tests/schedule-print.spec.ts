@@ -10,7 +10,14 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { buildScheduleSections, schedulePngFileName } from '../src/lib/schedule-print';
+import {
+  buildScheduleSections,
+  schedulePngFileName,
+  EXPORT_BG,
+  EXPORT_FG,
+  EXPORT_BORDER,
+  schedulePngExportOptions,
+} from '../src/lib/schedule-print';
 import { MemberRoleKind, StageStatus } from '../src/core/types/enums';
 import type { Member, Project, Stage, Task } from '../src/core/types/entities';
 
@@ -119,5 +126,32 @@ describe('schedulePngFileName：PNG 下载文件名', () => {
   it('非法文件名字符被清理', () => {
     const name = schedulePngFileName('a/b:c*d?e', new Date('2026-09-01T08:30:00.000Z'));
     expect(name).not.toMatch(/[/:*?"<>|]/);
+  });
+});
+
+describe('导出 PNG 配色：固定浅底深字，不跟随主题（回归防护）', () => {
+  it('EXPORT_BG / EXPORT_FG / EXPORT_BORDER 为固定浅底深字常量', () => {
+    expect(EXPORT_BG).toBe('#ffffff');
+    expect(EXPORT_FG).toBe('#1e293b');
+    expect(EXPORT_BORDER).toBe('#e2e8f0');
+  });
+
+  it('schedulePngExportOptions().backgroundColor 固定为 EXPORT_BG（浅色），不读取主题', () => {
+    const opts = schedulePngExportOptions();
+    // 关键回归：必须是写死的浅色常量字面量。若改回「跟随主题」（读取 CSS 变量 / store），
+    // 该值将不再等于固定的 #ffffff，本条测试失败。
+    expect(opts.backgroundColor).toBe(EXPORT_BG);
+    expect(opts.backgroundColor).toBe('#ffffff');
+    // 纯函数：多次调用结果一致，证明不依赖运行时主题状态。
+    expect(schedulePngExportOptions().backgroundColor).toBe(opts.backgroundColor);
+  });
+
+  it('ignoreElements 排除 .no-print 操作栏（其使用跟随主题的配色），保留正文', () => {
+    const opts = schedulePngExportOptions();
+    expect(typeof opts.ignoreElements).toBe('function');
+    const noPrint = { classList: { contains: (c: string) => c === 'no-print' } } as unknown as HTMLElement;
+    const body = { classList: { contains: () => false } } as unknown as HTMLElement;
+    expect(opts.ignoreElements!(noPrint)).toBe(true);
+    expect(opts.ignoreElements!(body)).toBe(false);
   });
 });

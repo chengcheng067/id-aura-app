@@ -8,6 +8,40 @@ import type { Member, Project, Stage, Task } from '../core/types/entities';
 import type { StageStatus } from '../core/types/enums';
 import { taskAssigneeIds } from '../hooks/useRoleGuard';
 
+/**
+ * 导出 PNG / A4 预览的「打印友好」配色（v0.5 主题修复）：
+ *   导出给甲方 / 客户的交付物相当于打印稿，固定「浅底深字」，
+ *   不跟随应用当前的暗色主题。浅色主题下若文字写死浅色，会白底白字看不见；
+ *   深色主题下深底浅字虽可读，但发给甲方不专业。故无论当前亮 / 暗主题，
+ *   导出图一律 白 / 浅灰底 + 深色文字。阶段色条（stage colors）等品牌 / 语义色保持原样。
+ */
+export const EXPORT_BG = '#ffffff'; // 导出背景：纯白纸面
+export const EXPORT_FG = '#1e293b'; // 导出前景（默认文字）：深 slate-800（与 global.css .a4-page 对齐）
+export const EXPORT_BORDER = '#e2e8f0'; // 导出弱描边：slate-200
+
+/**
+ * 导出 PNG 的 html2canvas 固定配色选项（纯函数，可测）。
+ * backgroundColor 写死 EXPORT_BG（浅色常量），不读取任何主题 CSS 变量 / store；
+ * ignoreElements 跳过 .no-print 操作栏——该栏使用跟随主题的 bg-paper/text-mist/border-sand，
+ * 不应进入交付物。若有人改回「跟随主题」，本函数返回的 backgroundColor 不再是固定常量，
+ * 对应回归测试会失败。
+ */
+export function schedulePngExportOptions(): {
+  backgroundColor: string;
+  scale: number;
+  useCORS: boolean;
+  logging: boolean;
+  ignoreElements: (el: Element) => boolean;
+} {
+  return {
+    backgroundColor: EXPORT_BG,
+    scale: 2,
+    useCORS: true,
+    logging: false,
+    ignoreElements: (el: Element) => el.classList.contains('no-print'),
+  };
+}
+
 /** 打印表单行：任务标题 | 参与人（多人多值，未指派 → [] → 页面渲染「—」）| 截止日 | 状态 */
 export interface ScheduleTaskRow {
   id: string;
@@ -81,12 +115,7 @@ export async function exportSchedulePng(
   fileName: string,
 ): Promise<void> {
   const html2canvas = (await import('html2canvas')).default;
-  const canvas = await html2canvas(element, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-  });
+  const canvas = await html2canvas(element, schedulePngExportOptions());
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/png'),
   );
@@ -187,12 +216,7 @@ export async function exportSchedulePngPages(
 ): Promise<void> {
   const html2canvas = (await import('html2canvas')).default;
   for (let i = 0; i < elements.length; i++) {
-    const canvas = await html2canvas(elements[i], {
-      backgroundColor: '#ffffff',
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    });
+    const canvas = await html2canvas(elements[i], schedulePngExportOptions());
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) {
       throw new Error(`PNG 导出失败：第 ${i + 1} 页无法生成图像数据。`);
