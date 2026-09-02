@@ -2,7 +2,7 @@
  * 应用版本常量（前端只读，跟随 UPK 构建号）。
  * 与 package.json version (0.3.0) + ugcli --build 同步；UPK 最终版本为 x.y.z.b。
  */
-export const BUILD_VERSION = '0.3.0.0017';
+export const BUILD_VERSION = '0.3.0.0018';
 
 /** 前端技术栈说明（关于区展示） */
 export const FRONTEND_STACK = 'Vite + React';
