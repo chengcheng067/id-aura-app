@@ -95,55 +95,55 @@ export function MyTasksPage(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 标题 + 控件 */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* 标题 + 副标题 */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-display text-display-lg">我的任务</h1>
         <span className="text-xs text-mist">只显示与我相关的内容</span>
+      </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          {/* 视图切换（参考稿形态：圆角12 容器 + 半透明蓝胶囊选中） */}
-          <div
-            role="tablist"
-            aria-label="任务分组方式"
-            className="flex items-center gap-1 rounded-[12px] border border-sand bg-cream/60 p-1"
-          >
-            {(
-              [
-                { key: 'by-project' as const, label: '按项目' },
-                { key: 'by-time' as const, label: '按时间' },
-              ]
-            ).map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                role="tab"
-                aria-selected={filter === o.key}
-                onClick={() => setFilter(o.key)}
-                className={cn(
-                  'rounded-[9px] px-3.5 py-2 text-sm font-medium transition-colors',
-                  filter === o.key ? 'bg-pine-soft text-pine' : 'text-mist hover:bg-sand hover:text-ink',
-                )}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-
-          {/* 显示已完成（自定义胶囊，替换原生 checkbox） */}
-          <button
-            type="button"
-            onClick={() => setShowDone((v) => !v)}
-            aria-pressed={showDone}
-            className={cn(
-              'rounded-full border px-3 py-1.5 text-xs transition-colors',
-              showDone
-                ? 'border-pine bg-pine-soft text-pine'
-                : 'border-sand text-mist hover:bg-sand hover:text-ink',
-            )}
-          >
-            {showDone ? '已含已完成' : '显示已完成'}
-          </button>
+      {/* 分组方式 tab + 显示已完成（独立一行：tab 左、过滤右，手机不再挤在标题旁换行错乱） */}
+      <div className="-mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div
+          role="tablist"
+          aria-label="任务分组方式"
+          className="flex items-center gap-1 rounded-[12px] border border-sand bg-cream/60 p-1"
+        >
+          {(
+            [
+              { key: 'by-project' as const, label: '按项目' },
+              { key: 'by-time' as const, label: '按时间' },
+            ]
+          ).map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === o.key}
+              onClick={() => setFilter(o.key)}
+              className={cn(
+                'rounded-[9px] px-3.5 py-2 text-sm font-medium transition-colors',
+                filter === o.key ? 'bg-pine-soft text-pine' : 'text-mist hover:bg-sand hover:text-ink',
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
+
+        {/* 显示已完成（自定义胶囊，替换原生 checkbox） */}
+        <button
+          type="button"
+          onClick={() => setShowDone((v) => !v)}
+          aria-pressed={showDone}
+          className={cn(
+            'rounded-full border px-3 py-1.5 text-xs transition-colors',
+            showDone
+              ? 'border-pine bg-pine-soft text-pine'
+              : 'border-sand text-mist hover:bg-sand hover:text-ink',
+          )}
+        >
+          {showDone ? '已含已完成' : '显示已完成'}
+        </button>
       </div>
 
       {/* 统计概览（手机单列、平板双列、桌面四列，与首页统计行一致） */}

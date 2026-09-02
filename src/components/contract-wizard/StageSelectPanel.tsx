@@ -35,6 +35,8 @@ export function StageSelectPanel({
   projectType,
   scheduleBasis,
   onScheduleBasisChange,
+  durations,
+  onDurationChange,
 }: {
   selected: StageTemplateItem[];
   onChange(next: StageTemplateItem[]): void;
@@ -43,6 +45,10 @@ export function StageSelectPanel({
   /** 排期基准（受控）：传了才渲染切换区（自然日 / 工作日） */
   scheduleBasis?: ScheduleBasis;
   onScheduleBasisChange?(next: ScheduleBasis): void;
+  /** 每阶段时长覆盖（受控，key=阶段 key，value=天数字符串）。不传则不渲染「按阶段时长」输入 */
+  durations?: Record<string, string>;
+  /** 某阶段时长变化回调（value 为空字符串=清除自定义） */
+  onDurationChange?(key: string, value: string): void;
 }): JSX.Element {
   /** 用户是否已手动改过阶段选择（点套餐 / 池子勾选 / 调序 / 移除都算）。true 后不再跟随项目类型自动切换 */
   const dirtyRef = useRef(false);
@@ -154,6 +160,18 @@ export function StageSelectPanel({
         </div>
       )}
 
+      {/* 按阶段时长排期（受控：传了 durations 才渲染；为每阶段填天数后自动顺延算竣工） */}
+      {durations !== undefined && onDurationChange !== undefined && (
+        <div className="rounded-md border border-sand bg-cream/40 p-2.5">
+          <p className="mb-1.5 text-xs font-medium text-mist">
+            按阶段时长排期（为每个阶段填天数，竣工日期自动算出）
+          </p>
+          <p className="text-[11px] leading-4 text-mist">
+            未填的阶段按默认占比匀摊。你也可以直接在「展开设置 → 排期基准」切换自然日 / 工作日口径。
+          </p>
+        </div>
+      )}
+
       {/* 快捷套餐 */}
       <div>
         <p className="mb-1.5 text-xs font-medium text-mist">快捷套餐</p>
@@ -242,6 +260,20 @@ export function StageSelectPanel({
                   style={{ backgroundColor: STAGE_BAR_COLORS[item.colorIndex] ?? '#CBD5E1' }}
                 />
                 <span className="flex-1 truncate text-ink">{item.name}</span>
+                {durations !== undefined && onDurationChange !== undefined && (
+                  <span className="flex shrink-0 items-center gap-1 rounded-md border border-sand bg-cream px-1.5 py-0.5">
+                    <input
+                      type="number"
+                      min={1}
+                      value={durations[item.key] ?? ''}
+                      onChange={(e) => onDurationChange(item.key, e.target.value)}
+                      placeholder="天数"
+                      aria-label={`${item.name} 时长（天）`}
+                      className="w-10 bg-transparent text-right text-xs tabular-nums text-ink outline-none placeholder:text-mist"
+                    />
+                    <span className="text-[10px] text-mist">天</span>
+                  </span>
+                )}
                 <span className="shrink-0 text-xs tabular-nums text-mist">
                   {item.ratioPercent}%
                 </span>

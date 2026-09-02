@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -8,10 +8,12 @@ import { type ConfirmedContractPayload, type StageTemplateItem } from '../../cor
 import { ProjectType, PROJECT_TYPE_LABELS, type ScheduleBasis } from '../../core/types/enums';
 import { DEFAULT_SCHEDULE_BASIS } from '../../core/types/entities';
 import { getPresetItems } from '../../core/template/stage-library';
-import { MIN_STAGE_COUNT } from '../../core/template/split';
+import { MIN_STAGE_COUNT, computeEndAtByDurations } from '../../core/template/split';
 import { createProjectActions } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { toIsoDate } from '../../lib/date';
+import { DEFAULT_REST_POLICY } from '../../core/types/entities';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { defaultPresetKeyFor, presetKeyOfItems, StageSelectPanel } from './StageSelectPanel';
 import { Modal } from '../common/Modal';
 import { ImeInput } from '../common/ImeInput';
@@ -30,6 +32,7 @@ export function ManualFallbackForm({
 }): JSX.Element | null {
   const repos = useRepos();
   const navigate = useNavigate();
+  const restPolicy = useSettingsStore((s) => s.restPolicy);
   const [name, setName] = useState('');
   const [type, setType] = useState<ProjectType>(ProjectType.Dining);
   const [address, setAddress] = useState('');
@@ -45,6 +48,42 @@ export function ManualFallbackForm({
   );
   const [scheduleBasis, setScheduleBasis] = useState<ScheduleBasis>(DEFAULT_SCHEDULE_BASIS);
   const [stagePanelOpen, setStagePanelOpen] = useState(false);
+
+  /** 每阶段时长覆盖（key=阶段 key，value=天数字符串）。空 string=未填，走占比兜底 */
+  const [durations, setDurations] = useState<Record<string, string>>({});
+  /** 是否启用「按阶段时长排期」（填了任意阶段天数即视为启用并自动算竣工） */
+  const [durationEnabled, setDurationEnabled] = useState(false);
+
+  /** 阶段时长变化：写入并标记启用（填了任意非空天数即开启顺延） */
+  const handleDurationChange = (key: string, value: string): void => {
+    setDurations((prev) => ({ ...prev, [key]: value }));
+    if (value.trim() !== '') setDurationEnabled(true);
+  };
+
+  // 阶段时长变化 → 若启用且已选阶段 & 有开始日期，自动顺延算出竣工日期回填（图5）
+  useEffect(() => {
+    if (!durationEnabled || stageItems.length === 0 || !startAt) return;
+    // 仅当「至少一个阶段填了天数」才自动算竣工，避免切套餐瞬间误覆盖
+    const hasAnyDuration = Object.values(durations).some((v) => v.trim() !== '');
+    if (!hasAnyDuration) return;
+    try {
+      const filled = stageItems.map((it) => ({
+        ...it,
+        durationDays: durations[it.key]?.trim() !== '' && Number.isFinite(Number(durations[it.key]))
+          ? Number(durations[it.key])
+          : undefined,
+      }));
+      const { endAt: computedEnd } = computeEndAtByDurations(
+        startAt,
+        filled,
+        scheduleBasis,
+        restPolicy,
+      );
+      setEndAt(computedEnd);
+    } catch {
+      // 天数非法（如 0/负）时保持原竣工值，不覆盖；提交时由校验兜底
+    }
+  }, [durationEnabled, durations, stageItems, startAt, scheduleBasis, restPolicy]);
 
   if (!open) return null;
 
@@ -72,6 +111,12 @@ export function ManualFallbackForm({
     const actions = createProjectActions(repos);
     void (0 as unknown as ConfirmedContractPayload); // 类型引用占位：payload 由 service 组装
     try {
+      // 阶段时长：把用户填的天数合入 stageItems（供上层感知；未填的项不携带 durationDays）
+      const itemsWithDuration: StageTemplateItem[] = stageItems.map((it) => {
+        const raw = durations[it.key];
+        const hasDuration = raw?.trim() !== '' && Number.isFinite(Number(raw));
+        return hasDuration ? { ...it, durationDays: Number(raw) } : it;
+      });
       const project = await actions.createManual({
         name: name.trim(),
         type,
@@ -82,7 +127,7 @@ export function ManualFallbackForm({
         plannedStartAt: startAt,
         plannedEndAt: endAt,
         coverColor: null,
-        stageItems,
+        stageItems: itemsWithDuration,
         stagePresetKey: presetKeyOfItems(stageItems),
         scheduleBasis,
       });
@@ -164,7 +209,10 @@ export function ManualFallbackForm({
               />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block font-medium">竣工 *</span>
+              <span className="mb-1 block font-medium">
+                竣工 *
+                {durationEnabled && <span className="ml-1 font-normal text-pine">（已按阶段时长算出）</span>}
+              </span>
               <input
                 type="date"
                 value={endAt}
@@ -197,6 +245,8 @@ export function ManualFallbackForm({
                 projectType={type}
                 scheduleBasis={scheduleBasis}
                 onScheduleBasisChange={setScheduleBasis}
+                durations={durations}
+                onDurationChange={handleDurationChange}
               />
             </div>
           )}

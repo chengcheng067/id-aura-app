@@ -34,8 +34,8 @@ export function Modal({
 }: {
   open: boolean;
   onClose(): void;
-  /** 对齐方式：center（居中弹窗，默认）/ right（右侧滑出抽屉） */
-  placement?: 'center' | 'right';
+  /** 对齐方式：center（居中弹窗，默认）/ right（右侧滑出抽屉）/ right-float（右侧悬浮圆角卡片） */
+  placement?: 'center' | 'right' | 'right-float';
   /** 无障碍标签，读屏用 */
   ariaLabel?: string;
   children: React.ReactNode;
@@ -113,7 +113,7 @@ export function Modal({
       // 让其内部冒出的更浅层浮层（如指派弹层 z-[65]）能盖在抽屉之上。抽屉自身不参与 center 的顶层竞争。
       // Soft UI 不用 backdrop-blur（玻璃拟态）；层次靠统一的主色遮罩 + 面板外凸阴影表达。
       // 去掉模糊后遮罩要略实一点，否则背景噪点会穿透、压不住层级。
-      className={`fixed inset-0 ${placement === 'right' ? 'z-[60] bg-ink/25' : 'z-[70] bg-ink/45'}`}
+      className={`fixed inset-0 ${placement === 'center' ? 'z-[70] bg-ink/45' : 'z-[60] bg-ink/25'}`}
     >
       {/* 点击关闭判定放在锚点面板（e.currentTarget）上而非遮罩：因为面板是 flex 容器且覆盖内容区，
           点面板自身的空白区域（子面板之外）即关闭，点子面板内部不关闭。这样居中/右侧抽屉一致生效，
@@ -126,15 +126,17 @@ export function Modal({
         // 移动端形态：right 抽屉在 <sm(640px) 时改为「从底部滑出、接近全屏」，符合单手操作习惯；
         // 平板以上恢复右侧滑出。center 弹窗保持居中 + 收缩边距（p-4 → sm:p-6）。
         className={`outline-none flex h-full w-full ${
-          placement === 'right'
-            ? 'items-end justify-center sm:justify-end'
-            : 'items-center justify-center p-4 sm:p-6'
+          placement === 'center'
+            ? 'items-center justify-center p-4 sm:p-6'
+            : placement === 'right-float'
+              ? 'items-end justify-center sm:items-start sm:justify-end sm:p-6'
+              : 'items-end justify-center sm:justify-end'
         }`}
         // 手机状态栏安全区：right 抽屉从底部滑出、近全屏，面板头部（如设置抽屉标题）会顶到
         // 状态栏下方。用 env(safe-area-inset-top) 顶部避让，回退到 3rem；桌面 center 不受影响。
         // ⚠️ 仅改此处 padding / style，切勿触碰下方焦点 effect 的 [open] 依赖（IME 吞字根治）。
         style={
-          placement === 'right'
+          placement === 'right' || placement === 'right-float'
             ? { paddingTop: 'max(env(safe-area-inset-top), 3rem)' }
             : undefined
         }

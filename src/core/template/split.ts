@@ -401,3 +401,61 @@ export function addDaysIso(isoDate: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/**
+ * 按「每阶段时长顺延」正向推算竣工日期（图5：手动建档阶段池自定义时长自动算竣工）。
+ *
+ * 与占比较劈分 `previewSplit` 方向相反：
+ *   - previewSplit：给定 start+end → 按占比把总工期切给各阶段；
+ *   - computeEndAtByDurations：给定 start + 每阶段天数 → 逐个顺延 → 得 end。
+ *
+ * 输入 `items` 携带每阶段 `durationDays`（可选，缺失回退 `ratioPercent` 归一化兜底天数）；
+ * 按 scheduleBasis 决定自然日/工作日顺延（Workday 跳过休息日）。
+ *
+ * @returns 顺延后的竣工日期（ISO 'YYYY-MM-DD'），以及每阶段实际边界（用于回显）。
+ */
+export function computeEndAtByDurations(
+  startAt: string,
+  items: StageTemplateItem[],
+  basis: ScheduleBasis = DEFAULT_SCHEDULE_BASIS,
+  policy: RestPolicyConfig = DEFAULT_REST_POLICY,
+): { endAt: string; spans: Array<{ orderIndex: number; startAt: string; endAt: string; days: number }> } {
+  const startDate = toIsoDate(startAt);
+  if (!startDate) {
+    throw new ChangxiaError(ChangxiaErrorCode.Validation, '开始日期无效。');
+  }
+  if (items.length === 0) {
+    throw new ChangxiaError(ChangxiaErrorCode.Validation, '请至少选择 1 个阶段。');
+  }
+  const useWorkday = basis === ScheduleBasis.Workday;
+
+  // 已选占比合计（用于缺失天数时的归一化兜底）
+  const ratioTotal = items.reduce((acc, it) => acc + (it.ratioPercent || 0), 0);
+  const nd = items.length;
+
+  let cursor = startDate;
+  const spans: Array<{ orderIndex: number; startAt: string; endAt: string; days: number }> = [];
+
+  for (let i = 0; i < nd; i += 1) {
+    const item = items[i]!;
+    // 天数：优先用户填的 durationDays；缺失时按占比归一化成「整数天（至少 1）」
+    let days = Number.isFinite(item.durationDays) && (item.durationDays ?? 0) > 0
+      ? Math.max(1, Math.round(item.durationDays as number))
+      : Math.max(1, Math.round((ratioTotal > 0 ? (item.ratioPercent / ratioTotal) * 100 : 100 / nd)));
+    // 单位口径换算：Workday 下 days 是「工作日数」，需把结束日也算进来（含头尾）
+    let stageStart = cursor;
+    let stageEnd: string;
+    if (useWorkday) {
+      // 顺延 days 个工作日：从 stageStart 加 (days-1) 个工作日得到结束日（含头尾）
+      stageEnd = addWorkdays(stageStart, Math.max(0, days - 1), policy);
+      // 下一阶段从 stageEnd 的下一个工作日开始
+      cursor = addWorkdays(stageEnd, 1, policy);
+    } else {
+      stageEnd = addDaysIso(stageStart, days - 1);
+      cursor = addDaysIso(stageStart, days);
+    }
+    spans.push({ orderIndex: i + 1, startAt: stageStart, endAt: stageEnd, days });
+  }
+
+  return { endAt: spans[spans.length - 1]!.endAt, spans };
+}

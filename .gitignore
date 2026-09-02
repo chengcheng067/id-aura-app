@@ -28,3 +28,4 @@ win-out*/
 tmp/
 _e2e_*.ts
 vite.config.ts.timestamp-*.mjs
+release-*/

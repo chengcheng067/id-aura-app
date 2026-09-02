@@ -42,6 +42,20 @@ function mondayFirst(d: Date): number {
   return (d.getDay() + 6) % 7;
 }
 
+/** 手机（<768px）判定：月历手机适配用（纯 CSR SPA，window 可用；口径与 TimelineView 一致） */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia('(max-width: 767px)').matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    const onChange = (): void => setIsMobile(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
+
 interface GridDay {
   date: string; // 'YYYY-MM-DD'
   day: number; // 公历日 1~31
@@ -95,6 +109,7 @@ type EmptyKind = 'E1' | 'E2' | 'E3' | 'E4' | null;
  */
 export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.Element {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const calendarMonth = useUiStore((s) => s.calendarMonth);
   const setCalendarMonth = useUiStore((s) => s.setCalendarMonth);
   const filters = useUiStore((s) => s.calendarFilters);
@@ -197,14 +212,14 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
 
   return (
     <div className="space-y-5">
-      {/* 顶部大日期头（系统日历风格） */}
+      {/* 顶部大日期头（系统日历风格）；手机端两行式（标题一行、年月导航一行），避免横向挤压 */}
       <div className="glass-strong flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-sand p-4 sm:gap-4 sm:p-5">
-        <div>
+        <div className="min-w-0">
           <div className="font-display text-xl text-ink">{formatSelectedDate(selectedDate)}</div>
           <div className="mt-0.5 text-xs text-mist">{lunarLabel()}</div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center gap-3 ${isMobile ? 'w-full justify-between' : ''}`}>
           <button
             type="button"
             onClick={() => setCalendarMonth(shiftMonth(calendarMonth, -1))}
@@ -213,7 +228,7 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
           >
             ‹
           </button>
-          <h2 className="min-w-[120px] text-center font-display text-display-md text-ink">
+          <h2 className="min-w-0 flex-1 text-center font-display text-display-md text-ink">
             {meta.label}
           </h2>
           <button
@@ -252,8 +267,14 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
       {emptyKind ? (
         <EmptyState kind={emptyKind} monthLabel={meta.label} onClear={clearFilters} onManual={onManual} />
       ) : (
-        <div className="glass-medium overflow-x-auto rounded-[20px] border border-sand p-4 shadow-soft">
-          <div className="grid min-w-[560px] grid-cols-7 gap-px overflow-hidden rounded-[12px] border border-sand bg-sand">
+        <div className="glass-medium overflow-x-auto rounded-[20px] border border-sand p-3 shadow-soft sm:p-4">
+          <div
+            className={cn(
+              'grid grid-cols-7 gap-px overflow-hidden rounded-[12px] border border-sand bg-sand',
+              // 手机端去掉固定 560px 最小宽：7 列自适应屏宽，不再横向滚动导致右缘被裁/格子被压
+              !isMobile && 'min-w-[560px]',
+            )}
+          >
             {/* 星期表头 */}
             {WEEKDAYS.map((w) => (
               <div
@@ -271,13 +292,15 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
               // 顺带修存量 bug：原实现 new Date(iso).getDay() 是「UTC 解析 + 本地读取」，
               // 在 GMT-X 时区会把周末画错一天；isRestDay 内部统一用 dayjs 本地口径。
               const isRest = isRestDay(day.date, restPolicy);
+              const showCount = isMobile ? items.length > 0 : false;
               return (
                 <div
                   key={day.date}
                   onClick={() => setSelectedDate(day.date)}
                   className={cn(
-                    // 结构层级 §mobile-density：手机 min-h 110→120 维持可读但内部更紧（gap 1→0.5、p 2→1.5）
-                    'group relative flex min-h-[110px] flex-col gap-0.5 bg-paper p-1.5 transition-colors hover:bg-sand/70 sm:min-h-[120px]',
+                    // 结构层级 §mobile-density：手机 min-h 收紧、内部 gap/p 更紧凑；桌面维持原高度
+                    'group relative flex flex-col gap-0.5 bg-paper p-1.5 transition-colors hover:bg-sand/70 sm:min-h-[120px]',
+                    isMobile ? 'min-h-[92px]' : 'min-h-[110px]',
                     isRest && 'bg-rest-day/70',
                     day.isSelected && 'ring-1 ring-inset ring-pine',
                     !day.inMonth && 'opacity-60',
@@ -286,7 +309,8 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
                   <div className="flex items-center justify-between">
                     <span
                       className={cn(
-                        'flex h-7 w-7 items-center justify-center rounded-full text-sm',
+                        'flex items-center justify-center rounded-full text-sm',
+                        isMobile ? 'h-6 w-6' : 'h-7 w-7',
                         day.isToday
                           ? 'bg-pine text-white'
                           : day.inMonth
@@ -297,14 +321,19 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
                       {day.day}
                     </span>
                     {items.length > 0 && (
-                      <span className="text-[10px] text-mist opacity-0 transition-opacity group-hover:opacity-100">
+                      <span
+                        className={cn(
+                          'text-[10px] text-mist',
+                          isMobile ? 'opacity-100' : 'opacity-0 transition-opacity group-hover:opacity-100',
+                        )}
+                      >
                         {items.length}
                       </span>
                     )}
                   </div>
 
                   <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-                    {items.slice(0, 3).map((e) => (
+                    {items.slice(0, isMobile ? 2 : 3).map((e) => (
                       <button
                         key={e.project.id}
                         type="button"
@@ -312,15 +341,18 @@ export function MonthlyCalendarView({ onManual }: { onManual?(): void }): JSX.El
                           ev.stopPropagation();
                           open(e.project.id);
                         }}
-                        className="w-full truncate rounded-[4px] px-1.5 py-0.5 text-left text-[11px] font-medium text-white transition-transform hover:scale-[1.02]"
+                        className={cn(
+                          'w-full truncate rounded-[4px] px-1.5 py-0.5 text-left font-medium text-white transition-transform hover:scale-[1.02]',
+                          isMobile ? 'text-[10px] leading-4' : 'text-[11px]',
+                        )}
                         style={{ backgroundColor: e.color }}
                         title={`${e.project.name} · ${Math.round(e.percent)}%`}
                       >
                         {e.project.name}
                       </button>
                     ))}
-                    {items.length > 3 && (
-                      <span className="text-[10px] text-mist">+{items.length - 3} 个项目</span>
+                    {items.length > (isMobile ? 2 : 3) && (
+                      <span className="text-[10px] text-mist">+{items.length - (isMobile ? 2 : 3)} 个项目</span>
                     )}
                   </div>
                 </div>

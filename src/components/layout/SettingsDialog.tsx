@@ -63,8 +63,8 @@ export function SettingsDialog({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} placement="right" ariaLabel="设置">
-        <div className="glass-strong flex h-full w-full flex-col overflow-y-auto rounded-none border-white/40 sm:max-w-md sm:rounded-l-3xl">
+      <Modal open={open} onClose={onClose} placement="right-float" ariaLabel="设置">
+        <div className="glass-strong flex flex-col overflow-y-auto rounded-2xl border-white/40 max-h-[calc(100dvh-1.5rem)] w-full sm:max-h-[calc(100dvh-3rem)] sm:w-[400px] sm:self-start sm:mr-2 sm:mt-2">
           {/* 头部 */}
           <div className="flex items-center justify-between border-b border-sand px-5 py-4">
             <div className="flex items-center gap-2">

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarDays, CalendarRange, LayoutGrid, MoreVertical, PenLine, Save, Settings, Upload } from 'lucide-react';
+import { CalendarRange, LayoutGrid, MoreVertical, PenLine, Save, Settings, Upload } from 'lucide-react';
 
 import { useRoleGuard } from '../../hooks/useRoleGuard';
 import { useUiStore } from '../../store/useUiStore';
-import { RestPolicyDialog } from '../settings/RestPolicyDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { useBackupIo } from './useBackupIo';
 import { cn } from '../../lib/cn';
@@ -43,7 +42,6 @@ export function MobileMoreMenu(): JSX.Element {
   const { save, pick, fileInput, confirmDialog } = useBackupIo();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [restOpen, setRestOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -190,18 +188,6 @@ export function MobileMoreMenu(): JSX.Element {
                 <Upload size={15} className={ITEM_ICON} />
                 加载备份
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                className={ITEM}
-                onClick={() => {
-                  setMenuOpen(false);
-                  setRestOpen(true);
-                }}
-              >
-                <CalendarDays size={15} className={ITEM_ICON} />
-                休息制度
-              </button>
             </>
           )}
 
@@ -224,7 +210,6 @@ export function MobileMoreMenu(): JSX.Element {
 
       {fileInput}
       {confirmDialog}
-      {restOpen && <RestPolicyDialog onClose={() => setRestOpen(false)} />}
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );

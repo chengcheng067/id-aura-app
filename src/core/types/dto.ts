@@ -250,6 +250,12 @@ export interface StageTemplateItem {
   kanbanColumn: StageKanbanColumn;
   defaultResponsibility: string;
   defaultTasks: string[];
+  /**
+   * 阶段时长（天，可选）。手动建档「阶段池自定义时长」时由表单层维护：
+   * 填了则按此天数顺延算竣工（见 split.ts computeEndAtByDurations）；
+   * 未填则回退按 ratioPercent 归一化。仅前端表单态传递，不落库。
+   */
+  durationDays?: number;
 }
 
 /** 阶段套餐：若干阶段项的有序组合（itemKeys 顺序即默认 orderIndex 顺序） */
