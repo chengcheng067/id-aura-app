@@ -27,7 +27,7 @@
 ### 第 1 步：下载 .upk 包
 
 到 GitHub Releases 页下载 `amd64_com.chengcheng.idplan_0.3.0.0018.upk`：
-👉 [https://github.com/chengcheng067/idplan/releases](https://github.com/chengcheng067/idplan/releases)
+👉 [https://github.com/chengcheng067/id-aura-app/releases](https://github.com/chengcheng067/id-aura-app/releases)
 
 下载后放在一个好找的地方（比如桌面）。
 

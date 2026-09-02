@@ -7,7 +7,7 @@
 
 ## 一、安装
 
-1. 下载 `ID Plan-0.3.0-Setup.exe`：[GitHub Releases](https://github.com/chengcheng067/idplan/releases)
+1. 下载 `IDPlan-0.3.0-Setup.exe`：[GitHub Releases](https://github.com/chengcheng067/id-aura-app/releases)
 2. 双击安装包。
 3. 安装向导会问安装位置，**可以改目录**（不是强制装 C 盘）。
 4. 装完桌面和开始菜单都有「ID Plan」快捷方式，双击即可打开。

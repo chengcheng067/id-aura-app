@@ -32,7 +32,7 @@ ID Plan 是给室内设计师（个人 / 工作室）用的项目排程工具。
 下载 Windows 安装包，双击即装，桌面 + 开始菜单生成「ID Plan」快捷方式。数据存在**本机**。
 
 - 📄 **详细步骤**：[docs/install/windows-install.md](docs/install/windows-install.md)
-- 💿 **下载**：见下方「📦 下载地址」的 `ID Plan-0.3.0-Setup.exe`
+- 💿 **下载**：见下方「📦 下载地址」的 `IDPlan-0.3.0-Setup.exe`
 
 > 无代码签名证书，Windows SmartScreen 可能提示「未知发布者」→ 点**更多信息** → **仍要运行**。
 
@@ -66,12 +66,12 @@ ghcr.io/chengcheng067/idplan-backend:0.3.0
 
 | 平台 | 文件 | 用途 |
 |------|------|------|
-| **Windows** | `ID Plan-0.3.0-Setup.exe` | 桌面安装，个人使用 |
+| **Windows** | `IDPlan-0.3.0-Setup.exe` | 桌面安装，个人使用 |
 | **绿联 NAS (amd64)** | `amd64_com.chengcheng.idplan_0.3.0.0018.upk` | UGOS Pro 手动导入 |
 | **Docker 镜像 (.tar)** | `idplan-amd64.tar` / `idplan-backend-amd64.tar` | 离线导入 / 自建 |
 
 > 🤖 所有发布产物（exe / upk / tar / compose）都挂在 GitHub **Releases** 页：
-> 👉 **https://github.com/chengcheng067/idplan/releases**
+> 👉 **https://github.com/chengcheng067/id-aura-app/releases**
 
 按你的架构选择：绝大多数 Intel 系 NAS 用 **amd64**；arm64 仅 Apple Silicon / 部分 ARM 机型。
 
@@ -103,7 +103,7 @@ npm run build        # 类型检查 + 构建
 - 📦 **绿联 NAS · UPK 应用包**：[docs/install/upk-install-tutorial.md](docs/install/upk-install-tutorial.md)
 - ⚙️ **绿联 NAS · Docker compose**：[docs/install/nas-deploy-tutorial.md](docs/install/nas-deploy-tutorial.md) · [idplan-nas-compose.yml](docs/install/idplan-nas-compose.yml)
 - 🗂️ **备份格式**：[docs/backup-format.md](docs/backup-format.md)
-- 🤖 **发布产物**：见 GitHub [Releases](https://github.com/chengcheng067/idplan/releases)
+- 🤖 **发布产物**：见 GitHub [Releases](https://github.com/chengcheng067/id-aura-app/releases)
 
 ---
 
