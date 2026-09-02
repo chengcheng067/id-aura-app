@@ -250,18 +250,22 @@ export function StageSelectPanel({
             {selected.map((item, index) => (
               <li
                 key={item.key}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm"
+                className="grid grid-cols-[1.5rem_auto_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 px-3 py-2 text-sm"
                 data-testid={`selected-row-${index + 1}`}
               >
-                <span className="w-5 text-center text-xs text-mist">{index + 1}</span>
+                {/* 序号 */}
+                <span className="text-center text-xs tabular-nums text-mist">{index + 1}</span>
+                {/* 色点 */}
                 <span
                   aria-hidden
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: STAGE_BAR_COLORS[item.colorIndex] ?? '#CBD5E1' }}
                 />
-                <span className="flex-1 truncate text-ink">{item.name}</span>
+                {/* 名称（可收缩截断） */}
+                <span className="truncate text-ink">{item.name}</span>
+                {/* 时长（可选） */}
                 {durations !== undefined && onDurationChange !== undefined && (
-                  <span className="flex shrink-0 items-center gap-1 rounded-md border border-sand bg-cream px-1.5 py-0.5">
+                  <span className="flex items-center gap-1 rounded-md border border-sand bg-cream px-1.5 py-0.5">
                     <input
                       type="number"
                       min={1}
@@ -274,10 +278,12 @@ export function StageSelectPanel({
                     <span className="text-[10px] text-mist">天</span>
                   </span>
                 )}
-                <span className="shrink-0 text-xs tabular-nums text-mist">
+                {/* 占比 */}
+                <span className="text-right text-xs tabular-nums text-mist">
                   {item.ratioPercent}%
                 </span>
-                <span className="flex shrink-0 items-center gap-0.5">
+                {/* 排序控制（固定三钮，左右各留 0.5 间隙） */}
+                <span className="flex items-center gap-0.5">
                   <button
                     type="button"
                     aria-label={`上移 ${item.name}`}

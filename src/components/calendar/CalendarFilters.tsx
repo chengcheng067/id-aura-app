@@ -49,6 +49,7 @@ export function CalendarFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      {/* 状态组（横向紧凑） */}
       <div className="flex flex-wrap items-center gap-1.5">
         {(Object.keys(STATUS_LABELS) as CalendarFilterStatus[]).map((s) => (
           <Chip key={s} active={filters.status.has(s)} onClick={() => onToggleStatus(s)}>
@@ -57,13 +58,14 @@ export function CalendarFilters({
         ))}
       </div>
 
-      <span className="h-4 w-px bg-sand" aria-hidden />
+      {/* 阶段组：标签与 9 个序号 chip 同排，chip 用固定宽度方块、序号紧凑居中，避免手机端错行跳跃 */}
+      <span className="hidden h-4 w-px bg-sand sm:inline-block" aria-hidden />
 
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-mist">阶段</span>
         {STAGE_ORDER.map((i) => (
           <Chip key={i} active={filters.stage.has(i)} onClick={() => onToggleStage(i)}>
-            {'①②③④⑤⑥⑦⑧⑨'[i - 1]}
+            <span className="tabular-nums">{'①②③④⑤⑥⑦⑧⑨'[i - 1]}</span>
           </Chip>
         ))}
       </div>

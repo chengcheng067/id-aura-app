@@ -29,13 +29,14 @@ function Dot({ color }: { color: string }): JSX.Element {
 export function CalendarLegend(): JSX.Element {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-mist">
+      {/* 阶段①~⑨：去掉每个的 pill 外壳，改为紧凑的「色块+序号」内联行，手机端不再被 9 个药丸挤碎换行 */}
       <div className="flex items-center gap-2">
         <span className="text-mist">阶段</span>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 rounded-full bg-sand px-1.5 py-0.5"
+              className="inline-flex items-center gap-0.5"
               title={`阶段${'①②③④⑤⑥⑦⑧⑨'[i - 1]}`}
             >
               <Swatch color={STAGE_BAR_COLORS[i]} />
