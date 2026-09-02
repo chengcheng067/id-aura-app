@@ -1,0 +1,63 @@
+# =====================================================================
+# ID Plan · 绿联 NAS 一键部署 docker-compose（纯镜像拉取，小白友好）
+#
+# 用法（三选一，都在绿联桌面「Docker 应用 → 项目 → 创建」里）：
+#   1. 把本文件内容直接粘贴到「Compose 文件」输入框；
+#   2. 或上传本文件（推荐）；
+#   3. 手动逐个创建容器（不推荐，麻烦）。
+#
+# 说明：
+#   - 两个镜像都从 ghcr.io 拉取（前端 idplan + 后端 idplan-backend），
+#     不需要你本机有任何 Docker，NAS 自己会拉。
+#   - 版本号 0.3.0 可在下方 image 标签里改（如 :latest 表示最新）。
+#   - network_mode: bridge 是绿联 Docker 应用的既有约束；用 links 让
+#     前端 nginx 能解析到后端容器（否则 /api 反代会失败）。
+#   - 数据卷 /data 用于保存 SQLite 团队库，容器重建不丢数据。
+#
+# 打开方式：浏览器访问 http://<NAS-IP>:28080
+# 首次建议把「数据源」设为 remote + API 地址 /api（团队共享模式），
+# 具体见配套《NAS 部署教程.md》。
+# =====================================================================
+services:
+  # ---------------- 前端（nginx 托管页面 + /api 反代到后端） ----------------
+  idplan:
+    image: ghcr.io/chengcheng067/idplan:0.3.0
+    container_name: idplan
+    restart: always
+    ports:
+      - "28080:80"
+    environment:
+      - TZ=Asia/Shanghai
+      # remote = 团队共享（数据落 NAS 后端）；local = 浏览器本地记录
+      - VITE_DATA_SOURCE=${VITE_DATA_SOURCE:-remote}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
+    depends_on:
+      - backend
+    links:
+      - backend:backend
+    network_mode: bridge
+
+  # ---------------- 后端（Fastify + SQLite，团队共享数据层） ----------------
+  backend:
+    image: ghcr.io/chengcheng067/idplan-backend:0.3.0
+    container_name: idplan-backend
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+      - CHANGXIA_DB=/data/changxia.db
+      - PORT=7788
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+    # 数据持久化（关键）：容器重建不丢库。
+    # 方案 A（推荐，具名卷）：什么都不用改，NAS 自动存到 docker 目录。
+    # 方案 B（想在自己可见的共享文件夹里看到 .db）：
+    #   把下面这一行改成 bind mount，例如：
+    #   - /volume1/docker/idplan-data:/data
+    volumes:
+      - idplan-data:/data
+    expose:
+      - "7788"
+    network_mode: bridge
+
+volumes:
+  idplan-data:
