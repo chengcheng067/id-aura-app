@@ -15,7 +15,7 @@ MARKS = {
     '.0012 日志系统': ['ID_PLAN_LOG', 'unhandledrejection'],
     '.0013 设置面板': ['清空日志', '页面加载完成'],
     '.0014 IME探针': ['idplan.imeProbe', 'compositionupdate'],
-    '.0016 UI调整/版本号': ['grid-cols-2', 'safe-area-inset-top', 'setMode', '0.3.0.0016'],
+    '.0016 UI调整/版本号': ['grid-cols-2', 'safe-area-inset-top', 'setMode', '0.3.0.0016', 'calendar-not-started', 'text-moss'],
 }
 
 

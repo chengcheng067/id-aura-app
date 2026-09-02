@@ -9,8 +9,8 @@ import { STAGE_BAR_COLORS } from '../timeline/stageColors';
 import { TODAY_LINE_COLOR, RING_PROGRESS } from '../timeline/timelineColors';
 import { resolveStageColorIndex } from '../../core/template/stage-fallback';
 
-/** 未开始幽灵态底色 = mist token（#a0a0a8） */
-export const NOT_STARTED_COLOR = '#a0a0a8';
+/** 未开始幽灵态底色 = --calendar-not-started（亮色 #a0a0a8 / 暗色 #9aa3b2，住 global.css，随主题换肤） */
+export const NOT_STARTED_COLOR = 'var(--calendar-not-started)';
 
 /** 逾期色带 = clay token（#f06548，复用今日线色，同一语义源） */
 export const OVERDUE_COLOR = TODAY_LINE_COLOR;

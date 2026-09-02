@@ -107,6 +107,7 @@
   --color-clay: #ef4444;
   --color-rest-day: #eef2f7;
   --color-rest-day-band: rgba(15, 23, 42, 0.04);
+  --calendar-not-started: #a0a0a8; /* 未开始幽灵态底色（亮色） */
 
   /* —— 时间轴 SVG 行底纹 / 描边（亮暗双主题；改时须与 src/components/timeline/timelineColors.ts 同步）—— */
   --timeline-row-even: #f1f5f9; /* surface-sunken */
@@ -216,6 +217,7 @@
   --color-clay: #f87171;
   --color-rest-day: #23262d;
   --color-rest-day-band: rgba(255, 255, 255, 0.05);
+  --calendar-not-started: #9aa3b2; /* 未开始幽灵态底色（暗色，提升对比度） */
 
   /* —— 时间轴 SVG 行底纹 / 描边（暗色保持原硬编码值）—— */
   --timeline-row-even: #26262a;

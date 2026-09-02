@@ -261,11 +261,12 @@ describe('calendarColors 镜像一致性（PRD §6.2 禁止裸 hex 漂移）', (
   it('完成色 = stage.s9，逾期色 = clay，未开始 = mist，进度点 = pine', () => {
     expect(COMPLETED_COLOR).toBe(STAGE_BAR_COLORS[9]);
     // 今日线 / 逾期色带 / 进度点改由 CSS 变量驱动（见 timelineColors.ts），
-    // 不再裸 hex：真实色值（#f06548 / #6ea8fe）住在 global.css 对应 --timeline-* 变量，
-    // 随主题换肤。这里守的是「引用同一变量、不各自硬编码」的镜像一致性。
+    // 未开始幽灵态改由 --calendar-not-started 驱动（见 calendarColors.ts），
+    // 不再裸 hex：真实色值住在 global.css 对应变量，随主题换肤。
+    // 这里守的是「引用同一变量、不各自硬编码」的镜像一致性。
     expect(TODAY_LINE_COLOR).toBe('var(--timeline-today-line)');
     expect(OVERDUE_COLOR).toBe(TODAY_LINE_COLOR);
-    expect(NOT_STARTED_COLOR).toBe('#a0a0a8');
+    expect(NOT_STARTED_COLOR).toBe('var(--calendar-not-started)');
     expect(PROGRESS_DOT_COLOR).toBe('var(--timeline-ring-progress)');
   });
   it('stageColorOf 按 orderIndex 取九段色', () => {

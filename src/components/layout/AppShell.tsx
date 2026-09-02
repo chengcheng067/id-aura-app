@@ -39,9 +39,9 @@ export function AppShell(): JSX.Element {
             onClick={() => dismissToast(t.id)}
             className={`toast-enter glass-medium pointer-events-auto rounded-lg px-4 py-2 text-sm shadow-soft ${
               t.kind === 'success'
-                ? 'text-[#56d48c]'
+                ? 'text-moss'
                 : t.kind === 'error'
-                  ? 'text-[#ff7a5c]'
+                  ? 'text-clay'
                   : 'text-ink'
             }`}
           >
