@@ -42,6 +42,9 @@ export function Modal({
 }): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null);
   const lastFocusRef = useRef<HTMLElement | null>(null);
+  // 用 ref 持有最新的 onClose，避免父组件重渲染产生新函数引用时导致下面的焦点 effect 重跑（会抢走输入框焦点、打断输入法组合）。
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Escape 关闭 + 焦点圈禁 + 滚动锁定。
   useEffect(() => {
@@ -54,7 +57,7 @@ export function Modal({
 
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // 焦点圈禁：Tab / Shift+Tab 在面板内循环。
@@ -95,8 +98,10 @@ export function Modal({
       // 关闭后把焦点还原给触发元素。
       lastFocusRef.current?.focus();
     };
-  }, [open, onClose]);
-
+    // 依赖只保留 open：若把 onClose 放进依赖，父组件每次重渲染产生的新函数引用会让本 effect 卸载重跑，
+    // cleanup 里的焦点还原 + 重新聚焦面板会在每次击键时抢走输入框焦点，
+    // 打断微软拼音的 IME 组合上下文，造成「打第二个字时第一个字消失」的吞字。
+  }, [open]);
   if (!open) return null;
 
   return createPortal(
