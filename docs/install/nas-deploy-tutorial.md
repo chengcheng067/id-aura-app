@@ -95,7 +95,7 @@
 ## 七、如何拿到镜像（两种来源）
 
 1. **GitHub Releases（最快，离线导入用）**：去仓库 Releases 页下载 `docker-0.3.0` 发布里的 `.tar` 文件（按你的 NAS 架构选 amd64 或 arm64）：
-   - https://github.com/chengcheng067/id-aura-app/releases/tag/docker-0.3.0
+   - https://github.com/chengcheng067/idplan/releases/tag/docker-0.3.0
    - 前端：`idplan-amd64.tar`（约 20MB）/ `idplan-arm64.tar`（约 21MB）
    - 后端：`idplan-backend-amd64.tar`（约 166MB）/ `idplan-backend-arm64.tar`（约 163MB）
 2. **ghcr 拉取（在线，升级方便）**：NAS 直接拉

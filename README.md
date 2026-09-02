@@ -71,7 +71,7 @@ ghcr.io/chengcheng067/idplan-backend:0.3.0
 | **Docker 镜像 (.tar)** | `idplan-amd64.tar` / `idplan-backend-amd64.tar` | 离线导入 / 自建 |
 
 > 🤖 所有发布产物（exe / upk / tar / compose）都挂在 GitHub **Releases** 页：
-> 👉 **https://github.com/chengcheng067/id-aura-app/releases**
+> 👉 **https://github.com/chengcheng067/idplan/releases**
 
 按你的架构选择：绝大多数 Intel 系 NAS 用 **amd64**；arm64 仅 Apple Silicon / 部分 ARM 机型。
 
@@ -103,7 +103,7 @@ npm run build        # 类型检查 + 构建
 - 📦 **绿联 NAS · UPK 应用包**：[docs/install/upk-install-tutorial.md](docs/install/upk-install-tutorial.md)
 - ⚙️ **绿联 NAS · Docker compose**：[docs/install/nas-deploy-tutorial.md](docs/install/nas-deploy-tutorial.md) · [idplan-nas-compose.yml](docs/install/idplan-nas-compose.yml)
 - 🗂️ **备份格式**：[docs/backup-format.md](docs/backup-format.md)
-- 🤖 **发布产物**：见 GitHub [Releases](https://github.com/chengcheng067/id-aura-app/releases)
+- 🤖 **发布产物**：见 GitHub [Releases](https://github.com/chengcheng067/idplan/releases)
 
 ---
 
