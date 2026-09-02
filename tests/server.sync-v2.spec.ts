@@ -164,7 +164,7 @@ describe('后端 v2 同步链路（NAS remote 数据源）', () => {
     const mCols = (ctx.db.prepare('PRAGMA table_info(members)').all() as Array<{ name: string }>).map(
       (c) => c.name,
     );
-    expect(mCols).toEqual(expect.arrayContaining(['role_kind']));
+    expect(mCols).toEqual(expect.arrayContaining(['role_kind', 'password_hash']));
   });
 
   it('stages.order_index 上限放宽到 99（前端备份 schema 已放宽，老库 CHECK 1-9 会拒写）', async () => {
@@ -287,6 +287,58 @@ describe('后端 v2 同步链路（NAS remote 数据源）', () => {
     // 关键：必须是真正的数组且保留全部成员，不能是 'm1' 字符串或 []
     expect(Array.isArray(tasks[0].assigneeIds)).toBe(true);
     expect(tasks[0].assigneeIds).toEqual(['m1', 'm2']);
+  });
+
+  it('v0.6 密码系统：POST /api/members/verify 服务端 scrypt 比对（不泄露密码哈希）', async () => {
+    // 创建带密码的成员（后端 scrypt 哈希）
+    const created = (
+      await ctx.app.inject({
+        method: 'POST',
+        url: '/api/members',
+        payload: { name: '暗号员', role: '绘图', avatarColor: '#3D6B5B', password: 'secret-9' },
+      })
+    ).json() as Record<string, unknown>;
+    expect(created.passwordHash).toBeTruthy();
+    expect(created.passwordHash).not.toContain('secret-9');
+
+    // 正确密码 → 200
+    const ok = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/members/verify',
+      payload: { memberId: created.id, password: 'secret-9' },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    // 错误密码 → 401（模糊提示，防成员枚举）
+    const bad = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/members/verify',
+      payload: { memberId: created.id, password: 'wrong' },
+    });
+    expect(bad.statusCode).toBe(401);
+
+    // 无密码成员无需验证（无密码成员直接进入语义）
+    const noPwd = (
+      await ctx.app.inject({
+        method: 'POST',
+        url: '/api/members',
+        payload: { name: '无密码员', role: '', avatarColor: '#3D6B5B' },
+      })
+    ).json() as Record<string, unknown>;
+    expect(noPwd.passwordHash).toBeNull();
+
+    // 清除密码后，旧密码不再通过
+    await ctx.app.inject({
+      method: 'PATCH',
+      url: `/api/members/${created.id}`,
+      payload: { password: null },
+    });
+    const cleared = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/members/verify',
+      payload: { memberId: created.id, password: 'secret-9' },
+    });
+    expect(cleared.statusCode).toBe(401);
   });
 
   it('导入 → 导出往返闭环，且导出可被前端 zod 校验通过', async () => {

@@ -222,8 +222,8 @@ describe('countActiveAdmins：active 管理员计数（v0.3 降级保护）', ()
 });
 
 describe('homeRouteTarget：落地页路由决策', () => {
-  it('isMember → /my-tasks（成员看不到项目全貌）', () => {
-    expect(homeRouteTarget(true)).toBe('/my-tasks');
+  it('isMember → /member-board（成员进入自己的项目看板，仅见相关项目）', () => {
+    expect(homeRouteTarget(true)).toBe('/member-board');
   });
 
   it('非成员 → /（首页）', () => {

@@ -211,6 +211,16 @@ export class RemoteMembersRepository implements IMembersRepository {
   update(id: string, cmd: UpdateMemberCmd): Promise<Member> {
     return this.api.patch(`/members/${id}`, cmd);
   }
+  /** 密码校验：POST /api/members/verify { memberId, password } → 200/401（服务端 scrypt 比对） */
+  async verifyCredentials(memberId: string, password: string): Promise<boolean> {
+    try {
+      await this.api.post('/members/verify', { memberId, password });
+      return true;
+    } catch {
+      // 401（密码错误）或任何失败 → false；由调用方给出用户名/密码错误提示
+      return false;
+    }
+  }
 }
 
 export class RemoteLogsRepository implements ILogsRepository {

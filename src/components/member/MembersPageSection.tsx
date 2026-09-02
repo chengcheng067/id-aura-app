@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Plus, UserRound, UserX, Crown, XCircle, Pencil, Check, X } from 'lucide-react';
+import { Plus, UserRound, UserX, Crown, XCircle, Pencil, Check, X, KeyRound } from 'lucide-react';
 
 import type { Member } from '../../core/types/entities';
 import { ChangxiaError, MemberRoleKind } from '../../core/types/enums';
@@ -10,6 +10,7 @@ import { useProjectsStore } from '../../store/useProjectsStore';
 import { useRepos } from '../../hooks/useRepos';
 import { useRoleGuard, countActiveAdmins } from '../../hooks/useRoleGuard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { Modal } from '../common/Modal';
 import { ImeInput } from '../common/ImeInput';
 
 /**
@@ -26,6 +27,8 @@ export function MembersPageSection(): JSX.Element | null {
   const [role, setRole] = useState('');
   const [contact, setContact] = useState('');
   const [demoteTarget, setDemoteTarget] = useState<Member | null>(null);
+  /** v0.6 密码系统：正在设/清密码的成员（弹 PasswordDialog） */
+  const [passwordMember, setPasswordMember] = useState<Member | null>(null);
 
   const actions = createMemberActions(repos);
 
@@ -143,6 +146,7 @@ export function MembersPageSection(): JSX.Element | null {
               onPromote={() => void actions.update(m.id, { roleKind: MemberRoleKind.Admin })}
               onDemote={() => setDemoteTarget(m)}
               onRename={(name) => void onRename(m.id, name)}
+              onPassword={() => setPasswordMember(m)}
             />
           ))}
         </ul>
@@ -161,7 +165,129 @@ export function MembersPageSection(): JSX.Element | null {
           只能看到分派给自己的内容。
         </p>
       </ConfirmDialog>
+
+      {/* v0.6 密码：设置 / 修改 / 清除成员密码 */}
+      {passwordMember && (
+        <PasswordDialog
+          member={passwordMember}
+          onClose={() => setPasswordMember(null)}
+        />
+      )}
     </section>
+  );
+}
+
+/** 密码设置弹窗：设置/修改成员密码，或清除（管理员决定成员可有无密码） */
+function PasswordDialog({
+  member,
+  onClose,
+}: {
+  member: Member;
+  onClose(): void;
+}): JSX.Element {
+  const repos = useRepos();
+  const actions = createMemberActions(repos);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const hasPassword = Boolean(member.passwordHash);
+
+  const save = async (): Promise<void> => {
+    if (busy) return;
+    const trimmed = value.trim();
+    // 保留原密码：未输入新密码则不改动（点「清除密码」才清除）
+    if (!trimmed) {
+      useProjectsStore.getState().pushToast('error', '请先输入新密码，或用「清除密码」移除。');
+      return;
+    }
+    setBusy(true);
+    try {
+      await actions.setPassword(member.id, trimmed);
+      useProjectsStore.getState().pushToast('success', `已设置「${member.name}」的登录密码`);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await actions.setPassword(member.id, '');
+      useProjectsStore.getState().pushToast('success', '已清除该成员密码');
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} ariaLabel="设置密码">
+      <div className="glass-strong iridescent-border dialog-pop w-full max-w-md rounded-2xl p-5 shadow-soft outline-none">
+        <div className="mb-3 flex items-start justify-between gap-4">
+          <h2 className="font-display text-display-md">
+            {hasPassword ? `修改「${member.name}」的密码` : `设置「${member.name}」的密码`}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="rounded-md p-1 text-mist hover:bg-sand"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <p className="text-xs leading-5 text-mist">
+          {hasPassword
+            ? '输入新密码可重置；不做任何输入并点「清除密码」则该成员无需密码即可进入。'
+            : '设置密码后，该成员需在「输入姓名」后凭密码登录。留空并点「清除密码」则无需密码。'}
+        </p>
+        <ImeInput
+          autoFocus
+          type="password"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              void save();
+            }
+          }}
+          placeholder="输入新密码（留空则不修改）"
+          disabled={busy}
+          autoComplete="new-password"
+          className="mt-4 w-full rounded-md border border-sand bg-paper px-3 py-2 text-sm outline-none focus:border-pine"
+        />
+        <div className="mt-5 flex justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => void clear()}
+            disabled={busy || !hasPassword}
+            className="rounded-md border border-sand px-3 py-1.5 text-sm text-clay transition-colors hover:bg-sand disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            清除密码
+          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-sand px-3 py-1.5 text-sm text-mist transition-colors hover:bg-sand"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={busy}
+              className="rounded-md bg-pine px-4 py-1.5 text-sm text-white transition-colors hover:bg-pine-deep disabled:opacity-50"
+            >
+              {hasPassword ? '保存新密码' : '设置密码'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -172,6 +298,7 @@ function MemberRow({
   onPromote,
   onDemote,
   onRename,
+  onPassword,
 }: {
   member: Member;
   isLastAdmin: boolean;
@@ -179,6 +306,7 @@ function MemberRow({
   onPromote(): void;
   onDemote(): void;
   onRename(name: string): void;
+  onPassword(): void;
 }): JSX.Element {
   const isAdminMember = member.roleKind === MemberRoleKind.Admin;
   const [editing, setEditing] = useState(false);
@@ -245,6 +373,15 @@ function MemberRow({
         <>
           <span className={`text-sm ${member.active ? 'text-ink' : 'text-mist'}`}>{member.name}</span>
           <span className="text-xs text-mist">{member.role}</span>
+          {member.passwordHash ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sand px-1.5 py-0.5 text-[10px] font-medium text-mist">
+              <KeyRound size={10} /> 有密码
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sand/60 px-1.5 py-0.5 text-[10px] text-mist">
+              <KeyRound size={10} /> 无密码
+            </span>
+          )}
           {isAdminMember && (
             <span className="inline-flex items-center gap-1 rounded-full bg-pine-soft px-1.5 py-0.5 text-[10px] font-medium text-pine-deep">
               <Crown size={10} /> 管理员
@@ -277,6 +414,14 @@ function MemberRow({
               <XCircle size={12} /> <span className="hidden sm:inline">取消管理员</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={onPassword}
+            title={member.passwordHash ? '修改/清除密码' : '设置密码'}
+            className="inline-flex items-center gap-1 rounded-md border border-sand px-1.5 py-1 text-xs text-mist hover:bg-sand hover:text-pine sm:px-2"
+          >
+            <KeyRound size={12} /> <span className="hidden sm:inline">密码</span>
+          </button>
           <button
             type="button"
             onClick={() => setEditing(true)}

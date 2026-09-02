@@ -119,9 +119,9 @@ export function canMemberToggleTask(
   return memberId !== null && taskAssigneeIds(task).includes(memberId);
 }
 
-/** 落地页路由决策：isMember → /my-tasks（HomeRouteGuard 复用 + spec 单测） */
+/** 落地页路由决策：isMember → /member-board（成员项目看板，仅自己相关项目）；否则首页看板 */
 export function homeRouteTarget(isMember: boolean): string {
-  return isMember ? '/my-tasks' : '/';
+  return isMember ? '/member-board' : '/';
 }
 
 /* -------------------- 受限视图判定（BUG-1 修复的核心语义） -------------------- */

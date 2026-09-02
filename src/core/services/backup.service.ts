@@ -101,6 +101,10 @@ const taskSchema = z.object({
  * 成员 schema：roleKind 用 z.enum([...]).default('member')（不是裸 optional）。
  * 旧备份无该字段 → undefined → 校验通过并归一为 'member'，保证导入后每行都有显式 roleKind
  * （否则 TS 类型要求必填，导入后行缺字段运行时 undefined）。
+ *
+ * passwordHash（v0.6 密码系统）：null=无密码（管理员决定成员可有/可无），
+ * local 模式为 Web Crypto PBKDF2 hex，remote 模式为服务端 scrypt hex。绝不回传明文。
+ * 老备份无该字段 → .nullable().default(null) 归一为 null，导入后行为与现状一致。
  */
 const memberSchema = z.object({
   id: z.string(),
@@ -110,6 +114,7 @@ const memberSchema = z.object({
   avatarColor: z.string(),
   active: z.boolean(),
   roleKind: z.enum(['admin', 'member']).default('member'),
+  passwordHash: z.string().nullable().default(null),
   revision: z.number().int().nonnegative(),
   updatedAt: isoString,
 });

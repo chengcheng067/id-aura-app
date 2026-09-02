@@ -70,6 +70,11 @@ export function createMemberActions(repos: import('../core/repositories/interfac
       }
     },
 
+    /** 设置/重置成员密码（明文，repo 各自哈希）；空串视为清除密码 */
+    async setPassword(id: string, password: string): Promise<void> {
+      await this.update(id, { password: password || null });
+    },
+
     /** 停用 = active=false（软停用，历史指派记录保留） */
     async setActive(id: string, active: boolean): Promise<void> {
       await this.update(id, { active });

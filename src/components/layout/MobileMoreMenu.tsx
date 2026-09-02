@@ -93,10 +93,25 @@ export function MobileMoreMenu(): JSX.Element {
           className="glass-medium menuFadeIn absolute right-0 top-full z-50 mt-2 max-h-[calc(100vh-6rem)] w-56 overflow-y-auto rounded-xl border border-sand py-1 shadow-soft"
         >
           {/* 导航 */}
-          {isAdmin && (
+          {isAdmin ? (
             <Link to="/" role="menuitem" className={ITEM} onClick={() => setMenuOpen(false)}>
               <LayoutGrid size={15} className={cn(ITEM_ICON, location.pathname === '/' && 'text-pine')} />
               <span className={cn(location.pathname === '/' ? 'text-pine' : 'text-ink')}>项目</span>
+            </Link>
+          ) : (
+            <Link
+              to="/member-board"
+              role="menuitem"
+              className={ITEM}
+              onClick={() => setMenuOpen(false)}
+            >
+              <LayoutGrid
+                size={15}
+                className={cn(ITEM_ICON, location.pathname === '/member-board' && 'text-pine')}
+              />
+              <span className={cn(location.pathname === '/member-board' ? 'text-pine' : 'text-ink')}>
+                看板
+              </span>
             </Link>
           )}
           <Link to="/my-tasks" role="menuitem" className={ITEM} onClick={() => setMenuOpen(false)}>

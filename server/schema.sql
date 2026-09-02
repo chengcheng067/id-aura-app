@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS members (
   active INTEGER NOT NULL DEFAULT 1,
   -- v0.2 角色种类：'admin' | 'member'，与 entities.Member.roleKind 对应。
   role_kind TEXT NOT NULL DEFAULT 'member',
+  -- v0.6 密码系统：密码哈希（格式 saltHex:hashHex），NULL=无密码（管理员决定成员可有/可无）。
+  password_hash TEXT,
   revision INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
 );

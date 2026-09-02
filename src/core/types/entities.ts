@@ -104,7 +104,7 @@ export interface Task {
   updatedAt: string;
 }
 
-/** 成员（MVP 无账号密码，身份=本机选择 currentMemberId） */
+/** 成员（v0.6 支持密码登录，可选——管理员决定成员可有/可无密码） */
 export interface Member {
   id: string; // mem_xxx
   name: string;
@@ -115,6 +115,13 @@ export interface Member {
   active: boolean;
   /** 角色（admin=设计师本人 / member=成员）；写入路径统一补默认值，运行时必有值 */
   roleKind: MemberRoleKind;
+  /**
+   * 密码哈希（可空，null=无密码）。
+   * local 模式：Web Crypto PBKDF2-SHA256 派生的 hex（前缀 salt:hash）；
+   * remote 模式：服务端 crypto.scrypt 派生的 hex（前缀 salt:hash）。
+   * 仅存哈希，绝不落明文；身份进入时本地/远端各自比对。
+   */
+  passwordHash: string | null;
   revision: number;
   updatedAt: string;
 }

@@ -41,9 +41,12 @@ export function IdentityDialog(): JSX.Element | null {
   const closeIdentityFlow = useSettingsStore((s) => s.closeIdentityFlow);
   const dismissFirstRunNotice = useSettingsStore((s) => s.dismissFirstRunNotice);
   const setCurrentMember = useSettingsStore((s) => s.setCurrentMember);
+  const setPendingMember = useSettingsStore((s) => s.setPendingMember);
+  const pendingMemberId = useSettingsStore((s) => s.pendingMemberId);
   const members = useMembersStore((s) => s.members);
 
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [mismatchKind, setMismatchKind] = useState<MismatchKind>(null);
   const [busy, setBusy] = useState(false);
@@ -52,9 +55,17 @@ export function IdentityDialog(): JSX.Element | null {
   useEffect(() => {
     if (flow === 'name_input') {
       setName('');
+      setPassword('');
       setNotice(null);
       setBusy(false);
       // 对话框面板渲染后聚焦输入框
+      const t = window.setTimeout(() => inputRef.current?.focus(), 0);
+      return () => window.clearTimeout(t);
+    }
+    if (flow === 'password_input') {
+      setPassword('');
+      setNotice(null);
+      setBusy(false);
       const t = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(t);
     }
@@ -62,6 +73,7 @@ export function IdentityDialog(): JSX.Element | null {
       setNotice(null);
       setMismatchKind(null);
       setBusy(false);
+      setPassword('');
     }
     return undefined;
   }, [flow]);
@@ -111,8 +123,14 @@ export function IdentityDialog(): JSX.Element | null {
         return;
       }
 
-      // 成员进入：命中 active 成员（含 admin）→ 锁定；未命中 → mismatch 停留
+      // 成员进入：命中 active 成员 → 若设置了密码则先验密码，否则直接进入
       if (matched) {
+        // 该成员被管理员设置了登录密码（v0.6）→ 进入 password_input 流程
+        if (matched.passwordHash) {
+          setPendingMember(matched.id);
+          setIdentityFlow('password_input');
+          return;
+        }
         setCurrentMember(matched.id);
         logUser('身份', `身份切换：成员「${trimmed}」进入`);
         closeIdentityFlow();
@@ -124,6 +142,33 @@ export function IdentityDialog(): JSX.Element | null {
     } catch (err) {
       toast('error', err instanceof ChangxiaError ? err.userMessage : '身份设置失败，请重试。');
       logError('身份', `身份切换失败：${trimmed ? `「${trimmed}」` : ''}`, err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 密码提交（password_input 流程）：本地/远端校验通过后进入 */
+  const submitPassword = async (): Promise<void> => {
+    if (busy || !pendingMemberId) return;
+    const plain = password;
+    if (!plain) return;
+
+    setBusy(true);
+    try {
+      const ok = await repos.members.verifyCredentials(pendingMemberId, plain);
+      if (!ok) {
+        setNotice('密码错误，请重试。');
+        setPassword('');
+        return;
+      }
+      const matched = members.find((m) => m.id === pendingMemberId) ?? null;
+      setCurrentMember(matched?.id ?? pendingMemberId);
+      logUser('身份', `身份切换：成员「${matched?.name ?? plain}」密码登录`);
+      setPendingMember(null);
+      closeIdentityFlow();
+    } catch (err) {
+      toast('error', err instanceof ChangxiaError ? err.userMessage : '密码校验失败，请重试。');
+      logError('身份', '密码登录失败', err);
     } finally {
       setBusy(false);
     }
@@ -201,7 +246,56 @@ export function IdentityDialog(): JSX.Element | null {
               disabled={busy || !name.trim()}
               className="rounded-md bg-pine px-4 py-1.5 text-sm text-white transition-colors hover:bg-pine-deep disabled:opacity-50"
             >
-              {adminIntent ? '确认为管理员' : '进入'}
+              {adminIntent ? '确认为管理员' : '下一步'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (flow === 'password_input') {
+      const pendingMember = members.find((m) => m.id === pendingMemberId);
+      return (
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-ink/80">
+            请输入 <b className="text-ink">{pendingMember?.name ?? '该成员'}</b> 的登录密码
+            （由管理员设置；无密码成员无需此步）。
+          </p>
+          <ImeInput
+            ref={inputRef}
+            type="password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setNotice(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void submitPassword();
+              }
+            }}
+            placeholder="输入密码"
+            disabled={busy}
+            autoComplete="current-password"
+            className="w-full rounded-md border border-sand bg-paper px-3 py-2 text-sm outline-none focus:border-pine"
+          />
+          {notice && <p className="text-xs text-clay">{notice}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-md border border-sand px-3 py-1.5 text-sm text-mist transition-colors hover:bg-sand"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitPassword()}
+              disabled={busy || !password}
+              className="rounded-md bg-pine px-4 py-1.5 text-sm text-white transition-colors hover:bg-pine-deep disabled:opacity-50"
+            >
+              登录
             </button>
           </div>
         </div>
@@ -229,7 +323,15 @@ export function IdentityDialog(): JSX.Element | null {
     <Modal
       open
       onClose={handleClose}
-      ariaLabel={flow === 'admin_prompt' ? '首次使用引导' : flow === 'name_input' ? '输入身份' : '无法进入'}
+      ariaLabel={
+        flow === 'admin_prompt'
+          ? '首次使用引导'
+          : flow === 'name_input'
+            ? '输入身份'
+            : flow === 'password_input'
+              ? '输入密码'
+              : '无法进入'
+      }
     >
       <div
         tabIndex={-1}
@@ -243,7 +345,9 @@ export function IdentityDialog(): JSX.Element | null {
                 ? adminIntent
                   ? '设置管理员身份'
                   : '输入你的姓名'
-                : '暂时无法进入'}
+                : flow === 'password_input'
+                  ? '输入密码'
+                  : '暂时无法进入'}
           </h2>
           <button
             type="button"

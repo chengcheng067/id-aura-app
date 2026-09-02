@@ -159,6 +159,12 @@ export interface CreateMemberCmd {
   avatarColor: string;
   /** 可选：默认 member（repo.insert 落默认值，外部调用方零改动） */
   roleKind?: MemberRoleKind;
+  /**
+   * 可选：成员初始明文密码（v0.6 密码系统）。
+   * 各适配器自行解释——local：Web Crypto PBKDF2 哈希后存 Dexie；
+   * remote：随 body 上送，由后端 crypto.scrypt 哈希后存 SQLite。绝不落明文于客户端。
+   */
+  password?: string;
 }
 
 export interface UpdateMemberCmd {
@@ -169,6 +175,13 @@ export interface UpdateMemberCmd {
   active?: boolean;
   /** 可选：提权/降级走 update(id, { roleKind: 'admin' })，接口层零新增 */
   roleKind?: MemberRoleKind;
+  /**
+   * 可选：设置/重置/清除密码（v0.6）。
+   *   - string → 设为该明文密码（local 哈希存 Dexie；remote 上送后端 scrypt 哈希）；
+   *   - null   → 清除密码（成员无需密码即可进入，管理员可决定成员可有无密码）；
+   *   - undefined → 不变（缺省）。
+   */
+  password?: string | null;
 }
 
 /* ------------------------------------ 备份 ------------------------------------ */

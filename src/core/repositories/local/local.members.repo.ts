@@ -4,6 +4,7 @@ import type { CreateMemberCmd, UpdateMemberCmd } from '../../types/dto';
 import type { IMembersRepository } from '../interfaces';
 import type { ChangxiaDatabase } from './dexie.database';
 import { pickDefined } from './local.projects.repo';
+import { hashPassword, verifyPassword } from '../../../lib/password';
 
 /** Dexie 实现的成员仓储 */
 export class LocalMembersRepository implements IMembersRepository {
@@ -41,6 +42,8 @@ export class LocalMembersRepository implements IMembersRepository {
       active: true,
       // 角色默认 member（外部调用方零改动）；first-run 管理员提权经 roleKind:'admin' 显式传入
       roleKind: cmd.roleKind ?? MemberRoleKind.Member,
+      // v0.6 密码系统：明文 password → Web Crypto PBKDF2 哈希；缺省/未设 → null（无密码）
+      passwordHash: cmd.password ? await hashPassword(cmd.password) : null,
       revision: 1,
       updatedAt: now,
     };
@@ -57,14 +60,28 @@ export class LocalMembersRepository implements IMembersRepository {
     if (!existing) {
       throw new ChangxiaError(ChangxiaErrorCode.NotFound, '未找到该成员。');
     }
-    // 停用开关只允许显式 active 字段驱动
+    // password 语义：string → 设为明文密码（哈希入库）；null → 清除密码；
+    // undefined → 不变（缺省，不进入 pickDefined 覆盖集合）。
+    // 用 pickDefined 处理除 password 外的常规字段（只过滤 undefined，保留 null 清除语义）。
+    const { password, ...rest } = cmd;
+    const base = pickDefined(rest);
     const next: Member = {
       ...existing,
-      ...pickDefined(cmd),
+      ...base,
+      ...(password !== undefined
+        ? { passwordHash: password ? await hashPassword(password) : null }
+        : {}),
       revision: existing.revision + 1,
       updatedAt: new Date().toISOString(),
     };
     await this.db.members.put(next);
     return next;
+  }
+
+  /** 本地密码校验：Web Crypto PBKDF2 比对（见 src/lib/password.ts） */
+  async verifyCredentials(memberId: string, password: string): Promise<boolean> {
+    const existing = await this.db.members.get(memberId);
+    if (!existing || !existing.active) return false;
+    return verifyPassword(password, existing.passwordHash);
   }
 }

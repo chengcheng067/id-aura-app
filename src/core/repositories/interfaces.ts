@@ -81,6 +81,12 @@ export interface IMembersRepository {
   get(id: string): Promise<Member | null>;
   insert(cmd: CreateMemberCmd): Promise<Member>;
   update(id: string, cmd: UpdateMemberCmd): Promise<Member>;
+  /**
+   * 校验成员密码（v0.6 密码系统）。
+   * local：Web Crypto PBKDF2 比对（见 src/lib/password.ts）；
+   * remote：POST /api/members/verify 由后端 crypto.scrypt 比对。密码绝不下发客户端。
+   */
+  verifyCredentials(memberId: string, password: string): Promise<boolean>;
 }
 
 /** append-only：只进不出 */

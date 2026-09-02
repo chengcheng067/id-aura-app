@@ -50,6 +50,11 @@ const V2_COLUMN_MIGRATIONS: ReadonlyArray<{ table: string; column: string; ddl: 
     column: 'role_kind',
     ddl: "ALTER TABLE members ADD COLUMN role_kind TEXT NOT NULL DEFAULT 'member'",
   },
+  {
+    table: 'members',
+    column: 'password_hash',
+    ddl: 'ALTER TABLE members ADD COLUMN password_hash TEXT',
+  },
 ];
 
 function migrateV2Columns(db: ChangxiaServerDb): void {

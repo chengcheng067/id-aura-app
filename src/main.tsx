@@ -14,6 +14,7 @@ import './styles/global.css';
 import { AppShell } from './components/layout/AppShell';
 import { HomeRouteGuard } from './components/layout/HomeRouteGuard';
 import { MyTasksPage } from './pages/MyTasksPage';
+import { MemberBoardPage } from './pages/MemberBoardPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { SchedulePrintPage } from './pages/SchedulePrintPage';
 import { CalendarPrintPage } from './pages/CalendarPrintPage';
@@ -36,6 +37,7 @@ export const router = createBrowserRouter(
       element: <AppShell />,
       children: [
         { index: true, element: <HomeRouteGuard /> },
+        { path: 'member-board', element: <MemberBoardPage /> },
         { path: 'project/:id', element: <ProjectDetailPage /> },
         { path: 'project/:id/schedule-print', element: <SchedulePrintPage /> },
         { path: 'project/:id/calendar-print', element: <CalendarPrintPage /> },

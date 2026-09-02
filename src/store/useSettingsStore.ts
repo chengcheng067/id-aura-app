@@ -23,7 +23,7 @@ import type { RestPolicyConfig } from '../core/types/entities';
 
 const LS_KEY = 'changxia.currentMemberId';
 
-export type IdentityFlowState = 'closed' | 'admin_prompt' | 'name_input' | 'mismatch';
+export type IdentityFlowState = 'closed' | 'admin_prompt' | 'name_input' | 'mismatch' | 'password_input';
 
 export interface SettingsState {
   currentMemberId: string | null;
@@ -35,10 +35,16 @@ export interface SettingsState {
   firstRunDismissed: boolean;
   /** 公司休息制度（出厂默认双休；由 bootstrap 从 settings 表注入，不落 localStorage） */
   restPolicy: RestPolicyConfig;
+  /**
+   * v0.6 密码系统：name_input 命中「设置了密码的成员」后，进入 password_input 前暂存该成员 id，
+   * 供密码表单校验通过后 setCurrentMember。关闭/取消时清空。
+   */
+  pendingMemberId: string | null;
 
   hydrate(currentMemberId: string | null): void;
   setRestPolicy(next: RestPolicyConfig): void;
   setCurrentMember(memberId: string | null): void;
+  setPendingMember(memberId: string | null): void;
   openIdentityFlow(state: IdentityFlowState, adminIntent?: boolean): void;
   setIdentityFlow(state: IdentityFlowState): void;
   closeIdentityFlow(): void;
@@ -60,6 +66,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   adminIntent: false,
   firstRunDismissed: false,
   restPolicy: DEFAULT_REST_POLICY,
+  pendingMemberId: null,
 
   setRestPolicy: (next) => set({ restPolicy: next }),
 
@@ -80,12 +87,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ currentMemberId: memberId });
   },
 
+  setPendingMember: (memberId) => set({ pendingMemberId: memberId }),
+
   openIdentityFlow: (state, adminIntent = false) =>
     set({ identityFlow: state, adminIntent }),
 
   setIdentityFlow: (state) => set({ identityFlow: state }),
 
-  closeIdentityFlow: () => set({ identityFlow: 'closed', adminIntent: false }),
+  closeIdentityFlow: () => set({ identityFlow: 'closed', adminIntent: false, pendingMemberId: null }),
 
   dismissFirstRunNotice: () => set({ firstRunDismissed: true }),
 }));

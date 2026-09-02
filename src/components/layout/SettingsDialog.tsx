@@ -8,6 +8,7 @@ import { createLogExportIo } from './useLogExport';
 import { clearLogs, dump, logUser } from '../../core/services/log.service';
 import { useProjectsStore } from '../../store/useProjectsStore';
 import { useTheme } from '../../hooks/useTheme';
+import { useRoleGuard } from '../../hooks/useRoleGuard';
 import { BUILD_VERSION, FRONTEND_STACK, REPO_URL } from '../../constants/version';
 import { RestPolicyEditor } from '../settings/RestPolicyDialog';
 
@@ -34,6 +35,9 @@ export function SettingsDialog({
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const toast = useProjectsStore((s) => s.pushToast);
   const { mode, setMode } = useTheme();
+  // 角色闭环：休息制度仅在管理员设置界面出现（普通成员界面取消该区块）。
+  // 顶栏独立入口 RestPolicySettingsButton 已是 admin-only，这里保持一致，权限规则不再散落。
+  const { isAdmin } = useRoleGuard();
 
   // 打开时实时读一次日志条数（抽屉每次打开都刷新，避免静态旧值）
   const count = useMemo(() => dump().length, [open]);
@@ -146,18 +150,20 @@ export function SettingsDialog({
               </p>
             </section>
 
-            {/* 休息制度区（嵌入原 RestPolicyDialog 编辑主体） */}
-            <section>
-              <div className="mb-2 flex items-center gap-1.5">
-                <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">
-                  <Settings size={14} className="text-mist" aria-hidden />
-                  休息制度
-                </h3>
-              </div>
-              <div className="rounded-[12px] border border-sand bg-cream/40 p-3">
-                <RestPolicyEditor embedded />
-              </div>
-            </section>
+            {/* 休息制度区（嵌入原 RestPolicyDialog 编辑主体）——仅管理员可见 */}
+            {isAdmin && (
+              <section>
+                <div className="mb-2 flex items-center gap-1.5">
+                  <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                    <Settings size={14} className="text-mist" aria-hidden />
+                    休息制度
+                  </h3>
+                </div>
+                <div className="rounded-[12px] border border-sand bg-cream/40 p-3">
+                  <RestPolicyEditor embedded />
+                </div>
+              </section>
+            )}
 
             {/* 关于区 */}
             <section>

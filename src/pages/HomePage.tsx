@@ -174,9 +174,9 @@ export function HomePage(): JSX.Element {
 
 /* ------------------------------ 列定义与分桶 ------------------------------ */
 
-type ColumnKey = 'todo' | 'design' | 'deepen' | 'build';
+export type ColumnKey = 'todo' | 'design' | 'deepen' | 'build';
 
-const KANBAN_COLUMNS: ReadonlyArray<{
+export const KANBAN_COLUMNS: ReadonlyArray<{
   key: ColumnKey;
   label: string;
   dot: string;
@@ -200,7 +200,7 @@ function columnOf(status: ReturnType<typeof computeProjectStatus>, orderIndex: n
   return 'build';
 }
 
-function groupByColumn(
+export function groupByColumn(
   projects: Project[],
   stagesOf: (p: Project) => Stage[],
   todayIso: string,

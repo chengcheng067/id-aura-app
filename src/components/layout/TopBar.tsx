@@ -110,6 +110,8 @@ export function TopBar(): JSX.Element {
 
   const onHome = location.pathname === '/';
   const onProjectPage = onHome || location.pathname.startsWith('/project');
+  // 成员看板路由（仅成员视角首页）
+  const onMemberBoard = location.pathname === '/member-board';
 
   const navClass = (active: boolean): string =>
     cn(
@@ -209,9 +211,13 @@ export function TopBar(): JSX.Element {
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3 sm:gap-3">
             {/* 桌面端（xl 以上）：导航 + 备份 + 视图切换 + 新建 */}
             <div className="hidden items-center gap-2 sm:gap-3 xl:flex">
-              {isAdmin && (
+              {isAdmin ? (
                 <Link to="/" className={navClass(location.pathname === '/')}>
                   项目
+                </Link>
+              ) : (
+                <Link to="/member-board" className={navClass(onMemberBoard)}>
+                  看板
                 </Link>
               )}
               <Link to="/my-tasks" className={navClass(location.pathname === '/my-tasks')}>
