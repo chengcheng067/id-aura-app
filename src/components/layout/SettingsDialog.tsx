@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 
-import { Database, FileDown, Settings, Trash2, X } from 'lucide-react';
+import { Database, FileDown, Monitor, Moon, Settings, Sun, Trash2, X } from 'lucide-react';
 
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { createLogExportIo } from './useLogExport';
 import { clearLogs, dump, logUser } from '../../core/services/log.service';
 import { useProjectsStore } from '../../store/useProjectsStore';
+import { useTheme } from '../../hooks/useTheme';
+import { BUILD_VERSION, FRONTEND_STACK, REPO_URL } from '../../constants/version';
+import { RestPolicyEditor } from '../settings/RestPolicyDialog';
 
 /**
  * 「设置」面板（顶栏右侧 · 所有角色可见）。
@@ -30,9 +33,20 @@ export function SettingsDialog({
   const io = useMemo(() => createLogExportIo(), []);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const toast = useProjectsStore((s) => s.pushToast);
+  const { mode, setMode } = useTheme();
 
   // 打开时实时读一次日志条数（抽屉每次打开都刷新，避免静态旧值）
   const count = useMemo(() => dump().length, [open]);
+
+  // 打包日期（构建时静态快照，便于排查版本）
+  const buildDate = new Date().toISOString().slice(0, 10);
+
+  // 主题三选控件
+  const themeOptions = [
+    { key: 'light' as const, label: '浅色', icon: <Sun size={15} aria-hidden /> },
+    { key: 'dark' as const, label: '深色', icon: <Moon size={15} aria-hidden /> },
+    { key: 'system' as const, label: '跟随系统', icon: <Monitor size={15} aria-hidden /> },
+  ];
 
   const onExport = (): void => {
     const n = io.export();
@@ -95,6 +109,89 @@ export function SettingsDialog({
                   文件发给开发。日志仅含运行记录与错误堆栈，不含项目/客户业务数据。
                 </p>
               )}
+            </section>
+
+            {/* 主题区 */}
+            <section>
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <Sun size={14} className="text-mist" aria-hidden />
+                  主题
+                </h3>
+              </div>
+              <div className="flex gap-2">
+                {themeOptions.map((o) => {
+                  const active = mode === o.key;
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => setMode(o.key)}
+                      aria-pressed={active}
+                      className={
+                        'flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3 py-2 text-sm font-medium transition-colors ' +
+                        (active
+                          ? 'border-pine bg-pine text-cream shadow-accent'
+                          : 'border-sand text-mist hover:bg-sand hover:text-ink')
+                      }
+                    >
+                      {o.icon}
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-xs text-mist">
+                选「跟随系统」后，应用随系统深色 / 浅色设置实时变化。
+              </p>
+            </section>
+
+            {/* 休息制度区（嵌入原 RestPolicyDialog 编辑主体） */}
+            <section>
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <Settings size={14} className="text-mist" aria-hidden />
+                  休息制度
+                </h3>
+              </div>
+              <div className="rounded-[12px] border border-sand bg-cream/40 p-3">
+                <RestPolicyEditor embedded />
+              </div>
+            </section>
+
+            {/* 关于区 */}
+            <section>
+              <div className="mb-2 flex items-center gap-1.5">
+                <h3 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <Database size={14} className="text-mist" aria-hidden />
+                  关于
+                </h3>
+              </div>
+              <dl className="space-y-1.5 rounded-[12px] border border-sand bg-cream/40 px-3.5 py-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-mist">版本号</dt>
+                  <dd className="font-medium text-ink">{BUILD_VERSION}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-mist">前端</dt>
+                  <dd className="text-ink">{FRONTEND_STACK}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-mist">打包</dt>
+                  <dd className="text-ink">{buildDate}</dd>
+                </div>
+              </dl>
+              <p className="mt-1.5 text-[11px] text-mist">
+                如有 bug 请提交 GitHub Issue：
+                <a
+                  href={REPO_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-pine underline-offset-2 hover:underline"
+                >
+                  {REPO_URL}
+                </a>
+              </p>
             </section>
           </div>
 

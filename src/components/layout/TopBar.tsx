@@ -7,9 +7,7 @@ import { NewProjectMenu } from '../project/NewProjectMenu';
 import { MemberIdentityPicker } from './MemberIdentityPicker';
 import { MobileMoreMenu } from './MobileMoreMenu';
 import { SaveBackupButton } from './SaveBackupButton';
-import { ThemeToggle } from './ThemeToggle';
 import { LoadBackupButton } from './LoadBackupButton';
-import { RestPolicySettingsButton } from '../settings/RestPolicyDialog';
 import { SettingsButton } from './SettingsButton';
 import { ImeInput } from '../common/ImeInput';
 import { useRoleGuard } from '../../hooks/useRoleGuard';
@@ -224,7 +222,6 @@ export function TopBar(): JSX.Element {
                 <div className="flex items-center gap-1">
                   <SaveBackupButton />
                   <LoadBackupButton />
-                  <RestPolicySettingsButton />
                 </div>
               )}
 
@@ -266,9 +263,6 @@ export function TopBar(): JSX.Element {
 
               {isAdmin && onProjectPage && <NewProjectMenu />}
             </div>
-
-            {/* 主题切换（亮 / 暗）：所有断点都可见，放在身份入口之前 */}
-            <ThemeToggle />
 
             {/* 平板 / 手机：全部次要控件收进「⋮ 更多」（组件内部 xl:hidden） */}
             <MobileMoreMenu />

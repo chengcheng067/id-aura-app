@@ -14,43 +14,58 @@ import { useCallback, useSyncExternalStore } from 'react';
  *      这里只切换 <html data-theme>，整站自动换肤。
  */
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'idplan-theme';
 
-function isThemeMode(v: unknown): v is ThemeMode {
+/** 是否已显式选择（light/dark）；'system' 不落库，故「未选 = system」 */
+function isExplicit(v: string | null): v is 'light' | 'dark' {
   return v === 'light' || v === 'dark';
 }
 
 /** 读取用户显式选择；无则返回 null（表示「跟随系统」） */
-function readStoredTheme(): ThemeMode | null {
+function readStoredTheme(): 'light' | 'dark' | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    return isThemeMode(v) ? v : null;
+    return isExplicit(v) ? v : null;
   } catch {
     return null;
   }
 }
 
-function systemTheme(): ThemeMode {
+function systemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-/** 当前应当生效的主题 */
-function resolveTheme(): ThemeMode {
-  return readStoredTheme() ?? systemTheme();
+/** 当前应当生效的主题（解析 'system' 为实际亮/暗） */
+function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
+  return mode === 'system' ? systemTheme() : mode;
+}
+
+/** 选择模式：light / dark / system（localStorage 不存在即 system） */
+function storedMode(): ThemeMode {
+  return readStoredTheme() ?? 'system';
 }
 
 // —— 极小的外部 store：让任意多个组件共享同一份主题状态 ——
-let current: ThemeMode = resolveTheme();
+// mode 是用户选择（含 system）；current 是该选择解析出的实际主题（light/dark），
+// 用于 <html data-theme> 与 useSyncExternalStore 快照（系统切换时 current 变、mode 不变）。
+let mode: ThemeMode = storedMode();
+let current: 'light' | 'dark' = resolveTheme(mode);
 const listeners = new Set<() => void>();
 
 function apply(next: ThemeMode): void {
-  current = next;
-  document.documentElement.dataset.theme = next;
+  mode = next;
+  current = resolveTheme(mode);
+  document.documentElement.dataset.theme = current;
   try {
-    localStorage.setItem(STORAGE_KEY, next);
+    if (next === 'system') {
+      // 删除显式键：让 resolveTheme() 自然回退到 systemTheme()
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, next);
+    }
   } catch {
     /* 存储不可用：仅当前会话生效，忽略 */
   }
@@ -64,11 +79,11 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-function getSnapshot(): ThemeMode {
+function getSnapshot(): 'light' | 'dark' {
   return current;
 }
 
-function getServerSnapshot(): ThemeMode {
+function getServerSnapshot(): 'light' | 'dark' {
   return 'light';
 }
 
@@ -77,22 +92,29 @@ function getServerSnapshot(): ThemeMode {
  * 与 index.html 的内联脚本互补——内联脚本防首屏闪白，这里负责运行期响应。
  */
 export function initTheme(): void {
-  document.documentElement.dataset.theme = resolveTheme();
+  document.documentElement.dataset.theme = resolveTheme(storedMode());
 
   if (typeof window.matchMedia !== 'function') return;
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    // 用户已显式选过主题时，不跟随系统
+    // 仅当用户未显式选过主题（= system）时跟随系统；显式选了就保持
     if (readStoredTheme() !== null) return;
-    apply(e.matches ? 'dark' : 'light');
+    current = e.matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = current;
+    listeners.forEach((l) => l());
   });
 }
 
 export interface UseThemeResult {
-  theme: ThemeMode;
-  /** 在亮 / 暗之间切换 */
+  /** 实际生效主题（light/dark，已解析 system） */
+  theme: 'light' | 'dark';
+  /** 用户选择：light / dark / system */
+  mode: ThemeMode;
+  /** 在亮 / 暗之间切换（显式选择） */
   toggleTheme(): void;
-  /** 直接设定 */
+  /** 直接设定（显式 light/dark） */
   setTheme(mode: ThemeMode): void;
+  /** 设定选择，含 'system'（删除 localStorage 键回退系统） */
+  setMode(mode: ThemeMode): void;
 }
 
 export function useTheme(): UseThemeResult {
@@ -100,8 +122,11 @@ export function useTheme(): UseThemeResult {
   const toggleTheme = useCallback(() => {
     apply(current === 'dark' ? 'light' : 'dark');
   }, []);
-  const setTheme = useCallback((mode: ThemeMode) => {
-    apply(mode);
+  const setTheme = useCallback((m: ThemeMode) => {
+    apply(m);
   }, []);
-  return { theme, toggleTheme, setTheme };
+  const setMode = useCallback((m: ThemeMode) => {
+    apply(m);
+  }, []);
+  return { theme, mode, toggleTheme, setTheme, setMode };
 }

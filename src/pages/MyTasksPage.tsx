@@ -147,7 +147,7 @@ export function MyTasksPage(): JSX.Element {
       </div>
 
       {/* 统计概览（手机单列、平板双列、桌面四列，与首页统计行一致） */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard icon="▢" tone="pine" value={stats.today} label="今天到期" trend={null} />
         <StatCard icon="▲" tone="clay" value={stats.overdue} label="已逾期" trend={null} />
         <StatCard icon="▣" tone="amber" value={stats.week} label="7 天内" trend={null} />

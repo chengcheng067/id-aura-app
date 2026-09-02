@@ -130,6 +130,14 @@ export function Modal({
             ? 'items-end justify-center sm:justify-end'
             : 'items-center justify-center p-4 sm:p-6'
         }`}
+        // 手机状态栏安全区：right 抽屉从底部滑出、近全屏，面板头部（如设置抽屉标题）会顶到
+        // 状态栏下方。用 env(safe-area-inset-top) 顶部避让，回退到 3rem；桌面 center 不受影响。
+        // ⚠️ 仅改此处 padding / style，切勿触碰下方焦点 effect 的 [open] 依赖（IME 吞字根治）。
+        style={
+          placement === 'right'
+            ? { paddingTop: 'max(env(safe-area-inset-top), 3rem)' }
+            : undefined
+        }
         // 拦截合成 click，阻止其沿 React 组件树冒泡到背后触发器的 onClick（如项目卡片 → 跳转）。
         // 关键：Modal 用 createPortal 只改 DOM 挂载点，React 树仍是调用方的子树，
         // 故点弹窗内任意元素（输入框等）的 click 会冒泡到外层卡片的 onClick 触发跳转。

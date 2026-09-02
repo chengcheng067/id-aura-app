@@ -108,6 +108,18 @@
   --color-rest-day: #eef2f7;
   --color-rest-day-band: rgba(15, 23, 42, 0.04);
 
+  /* —— 时间轴 SVG 行底纹 / 描边（亮暗双主题；改时须与 src/components/timeline/timelineColors.ts 同步）—— */
+  --timeline-row-even: #f1f5f9; /* surface-sunken */
+  --timeline-row-odd: #ffffff; /* surface-raised */
+  --timeline-row-active: #e0eaff; /* accent 浅蓝 */
+  --timeline-active-stroke: #6ea8fe;
+  --timeline-glow: #6ea8fe;
+  --timeline-ring-track: rgba(0, 0, 0, 0.08);
+  --timeline-ring-progress: #6ea8fe;
+  --timeline-ring-text: #14161a; /* text-primary */
+  --timeline-today-line: #f06548;
+  --timeline-rest-band: rgba(0, 0, 0, 0.03);
+
   /* —— 兼容旧 token 名（历史组件/动效仍在引用）—— */
   --accent-default: #6366f1;
   --accent-hover: #818cf8;
@@ -204,6 +216,18 @@
   --color-clay: #f87171;
   --color-rest-day: #23262d;
   --color-rest-day-band: rgba(255, 255, 255, 0.05);
+
+  /* —— 时间轴 SVG 行底纹 / 描边（暗色保持原硬编码值）—— */
+  --timeline-row-even: #26262a;
+  --timeline-row-odd: #3a3a40;
+  --timeline-row-active: #42424a;
+  --timeline-active-stroke: #6ea8fe;
+  --timeline-glow: #6ea8fe;
+  --timeline-ring-track: rgba(255, 255, 255, 0.10);
+  --timeline-ring-progress: #6ea8fe;
+  --timeline-ring-text: #f7f7fa;
+  --timeline-today-line: #f06548;
+  --timeline-rest-band: rgba(255, 255, 255, 0.02);
 
   --accent-default: #818cf8;
   --accent-hover: #a5b4fc;

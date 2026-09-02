@@ -86,7 +86,7 @@ export function HomePage(): JSX.Element {
       ) : (
         <>
           {/* 统计概览行（参考稿 §统计概览行）：手机单列、平板双列、桌面四列） */}
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+          <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <StatCard icon="▣" tone="pine" value={active.length} label="进行中项目" trend={null} />
             <StatCard icon="▢" tone="amber" value={dueThisWeek} label="本周到期任务" trend={null} />
             <StatCard icon="▲" tone="clay" value={overdueCount} label="逾期风险" trend={null} />
@@ -108,7 +108,7 @@ export function HomePage(): JSX.Element {
               </button>
             </div>
           ) : (
-            <section className="grid grid-cols-1 items-start gap-3 sm:gap-4 lg:grid-cols-4">
+            <section className="grid grid-cols-2 items-start gap-3 sm:gap-4 lg:grid-cols-4">
               {KANBAN_COLUMNS.map((col) => {
                 const items = buckets[col.key];
                 return (

@@ -1,39 +1,45 @@
 /**
- * 时间轴 SVG 硬编码 hex 收敛（v0.4 灰底）：
- * SVG 属性（fill/stroke/feDropShadow floodColor）无法使用 Tailwind class，
- * 故集中镜像 token 值，与 tailwind.config / global.css :root 保持一致——修改时三处必须同步。
- * 头像底色 hex（AVATAR_COLORS / Member.avatarColor）为受控例外（规范 §3.1 注释允许），不在此列。
+ * 时间轴 SVG 配色（v0.5 双主题）。
+ *
+ * 之前这里硬编码深色 hex，浅色主题下甘特图行底纹 / 激活描边仍是深色，与亮色背景割裂。
+ * 现改为引用 src/styles/global.css 的 CSS 变量（:root = 亮色，[data-theme='dark'] = 暗色），
+ * 全站换肤时 SVG 行底纹 / 描边 / 进度环 / 今日线 / 休息条带自动跟随。
+ *
+ * SVG 的 fill / stroke / feDropShadow floodColor 在现代浏览器下均支持 CSS 变量，
+ * React 渲染为 `fill="var(--xxx)"` 即可生效。
+ *
+ * 修改时三处必须同步：本文件 + global.css 的 --timeline-* 变量 +（如有）变量命名风格。
  */
 
-/** 时间轴行底纹：激活阶段整行高亮（v0.4.1 对比度微调：#3c3c40 → #42424a，比奇数行更亮一档） */
-export const ROW_BG_ACTIVE = '#42424a';
+/** 时间轴行底纹：激活阶段整行高亮 */
+export const ROW_BG_ACTIVE = 'var(--timeline-row-active)';
 
-/** 时间轴行底纹：偶数行（v0.4.1 对比度微调：surface-base #2a2a2c → #26262a） */
-export const ROW_BG_EVEN = '#26262a';
+/** 时间轴行底纹：偶数行 */
+export const ROW_BG_EVEN = 'var(--timeline-row-even)';
 
-/** 时间轴行底纹：奇数行（v0.4.1 对比度微调：surface-raised #353538 → #3a3a40） */
-export const ROW_BG_ODD = '#3a3a40';
+/** 时间轴行底纹：奇数行 */
+export const ROW_BG_ODD = 'var(--timeline-row-odd)';
 
-/** 激活彩条描边（原墨绿 #2E5548 → accent #6ea8fe） */
-export const STAGE_ACTIVE_STROKE = '#6ea8fe';
+/** 激活彩条描边（accent #6ea8fe，亮暗通用） */
+export const STAGE_ACTIVE_STROKE = 'var(--timeline-active-stroke)';
 
-/** 激活彩条发光（feDropShadow floodColor 原 #3D6B5B → accent #6ea8fe 系） */
-export const STAGE_GLOW_COLOR = '#6ea8fe';
+/** 激活彩条发光（feDropShadow floodColor，accent #6ea8fe） */
+export const STAGE_GLOW_COLOR = 'var(--timeline-glow)';
 
-/** 完成度环：外圈 track（border 弱描边，暗色玻璃底上可见但不刺眼） */
-export const RING_TRACK = 'rgba(255,255,255,0.10)';
+/** 完成度环：外圈 track（弱描边，随主题反相） */
+export const RING_TRACK = 'var(--timeline-ring-track)';
 
-/** 完成度环：进度条（accent-default #6ea8fe，全站主操作一致） */
-export const RING_PROGRESS = '#6ea8fe';
+/** 完成度环：进度条（accent #6ea8fe，全站主操作一致） */
+export const RING_PROGRESS = 'var(--timeline-ring-progress)';
 
-/** 完成度环：百分比文字（text-primary #f7f7fa，灰底可读 ≥4.5:1） */
-export const RING_TEXT = '#f7f7fa';
+/** 完成度环：百分比文字（随主题反相） */
+export const RING_TEXT = 'var(--timeline-ring-text)';
 
-/** 今日线（semantic-danger #f06548；原 v0.2 clay 旧值 #C4553B 已收敛） */
-export const TODAY_LINE_COLOR = '#f06548';
+/** 今日线（semantic-danger #f06548，亮暗通用） */
+export const TODAY_LINE_COLOR = 'var(--timeline-today-line)';
 
 /**
- * 休息日竖向条带（tailwind token rest-day.band，T7）。
- * 半透明叠加在行底纹之上——只做语义底纹，不改变 xOf 的自然日线性映射。
+ * 休息日竖向条带（随主题反相的半透明叠加，只做语义底纹，
+ * 不改变 xOf 的自然日线性映射）。
  */
-export const REST_DAY_BAND = 'rgba(255,255,255,0.02)';
+export const REST_DAY_BAND = 'var(--timeline-rest-band)';
