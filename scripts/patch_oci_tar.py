@@ -99,8 +99,16 @@ def main():
         lt = tarfile.open(fileobj=io.BytesIO(raw), mode="r:")
         names = lt.getnames()
         # 命中「运行时 dist 层」：含 usr/share/nginx/html/index.html + assets/ 目录，
-        # 且不含 nginx 默认的 50x.html（那是 base nginx 层）。
-        # 正确层 = 9786f...(10 files)；nginx 默认层 = 61ca...(690 files，含 50x.html)。
+        # 且不含 nginx 默认的 50x.html（那是 base nginx 层 = 61ca...，含 690 个文件）。
+        #
+        # ⚠️ 重要：镜像里可能存在多个「含 assets/ 但不在 Layers 列表中」的历史孤儿 blob。
+        # 例如某次旧构建残留的层 9786f...（10 files，内容是过期的 index-*.js），
+        # 它仍躺在 blobs/ 里但已不被任何 manifest 引用、不会被装载。
+        # 若误把它当成 dist 层替换，新代码就不会生效，表现为「装完界面没变化」。
+        #
+        # 本循环遍历的是 classic[0]["Layers"]（实际生效的层顺序），孤儿 blob 不在其中，
+        # 因此天然被跳过 —— 这是正确行为。**不要改成遍历 blobs 字典**，否则会误中孤儿层。
+        # Layers 中只应有一个运行时 dist 层，故命中后 break。
         if (
             "usr/share/nginx/html/index.html" in names
             and any(n.startswith("usr/share/nginx/html/assets/") for n in names)
